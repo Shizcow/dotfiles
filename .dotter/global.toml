@@ -4,6 +4,7 @@ depends = ["emacs", "i3", "fish"]
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
 "emacs/init.el" = "~/.emacs.d/init.el"
+aspell_dictionary = "~/.aspell.en.pws"
 
 [i3.files]
 xinitrc = "~/.xinitrc"
