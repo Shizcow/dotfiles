@@ -5,7 +5,7 @@ set fish_greeting
 # - Only do this if `thefuck` is installed (don't want errors!)
 thefuck --alias | source
 
-alias sysup='pacaur --noedit -Syu (cat /home/notroot/.config/i3status-rs/.pacaurignored /home/notroot/.config/i3status-rs/.repo_ignored | awk \'{printf"--ignore %s ", $1}\')'
+alias sysup='pacaur --noedit -Syu (cat ~/.config/i3status-rs/.pacaurignored ~/.config/i3status-rs/.repo_ignored | awk \'{printf"--ignore %s ", $1}\')'
 
 export EDITOR=emacs
 

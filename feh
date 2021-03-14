@@ -1,0 +1,3 @@
+#!/bin/sh
+
+feh --no-fehbg --bg-fill ~/.config/wallpapers/right.jpg ~/.config/wallpapers/left.jpg 
