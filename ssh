@@ -1,0 +1,15 @@
+Host aur.archlinux.org
+  IdentityFile ~/.ssh/aur
+  User aur
+
+Host lcs linuxa4.engr.colostate.edu
+  Hostname linuxa4.engr.colostate.edu
+  User dpohl
+  Compression yes
+  Ciphers aes128-ctr
+  ForwardX11 yes
+  ForwardX11Trusted yes
+
+Host cs denver.cs.colostate.edu
+  Hostname denver.cs.colostate.edu
+  User dpohl
