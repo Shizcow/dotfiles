@@ -1,6 +1,12 @@
 [default]
-depends = ["emacs"]
+depends = ["emacs", "i3", "fish"]
 
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
 "emacs/init.el" = "~/.emacs.d/init.el"
+
+[i3.files]
+Xresources = "~/.Xresources"
+
+[fish.files]
+"config.fish" = "~/.config/fish/config.fish"
