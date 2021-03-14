@@ -1,5 +1,5 @@
 [default]
-depends = ["emacs", "i3", "fish"]
+depends = ["emacs", "i3", "shells"]
 
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
@@ -14,5 +14,6 @@ feh = "~/.fehbg"
 # contains images, so should be symlinks
 wallpapers = { target = "~/.config/wallpapers", type = "symbolic" }
 
-[fish.files]
+[shells.files]
 "config.fish" = "~/.config/fish/config.fish"
+"init.sage" = "~/.sage/init.sage"
