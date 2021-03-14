@@ -1,0 +1,639 @@
+#+title: Emacs Configuration
+#+author: Devin Pohl
+#+STARTUP: content
+
+* Quick-Start
+** Testing
+To load this configuration into a running Emacs instance (optionally started as =emacs -q= to remove other configuration), simply open this file as a buffer, enable =org-mode= and =C-c C-c= to run the following source block:
+
+#+name: test-install-cfg
+#+begin_src emacs-lisp :tangle no :results silent
+(org-babel-load-file (buffer-file-name (window-buffer (minibuffer-selected-window))))
+#+end_src
+
+** Installing
+To save this configuration into =user-emacs-directory= _and_ load into the current instance, *overwriting any current configuration*, simply open this file as a buffer, enable =org-mode= and =C-c C-c= to run the following source block:
+
+#+name: pivot-reinstall-cfg
+#+begin_src emacs-lisp :tangle no :noweb yes :results silent
+<<write-init-el>>
+(write-file (concat user-emacs-directory "conf.org"))
+<<test-install-cfg>>
+(message "Done writing config and installing/configuring packages")
+#+end_src
+
+Note that =init.el= will be overwritten, as will =conf.org= (if it exists). This file will be saved to =conf.org=, and the small amount of startup code required to load =conf.org= will be placed into =init.el=.
+** Nuke + Install
+Often times, normal user commands can screw with the purity of a configuration. As a basic example, running =M-x package-install= will add components to a working system but will drive the system out of sync from its configuration. Therefore, in order to ensure the configuration will immediately and correctly set up on a new system, a way of testing clean installs is desired. The easiest (and most satisfying) method of achieving this is just nuking the entire Emacs user directory.
+
+The following snippet does just that; back up this configuration file, nuke the Emacs user directory, and pivot to reinstall. As with the previous segments, just =C-c C-c= to run:
+
+#+begin_src emacs-lisp :tangle no :noweb yes :results silent
+(setq conf-backup-dir (file-name-as-directory
+		  (concat temporary-file-directory "emacs_conf_backup")))
+(if (not (file-exists-p conf-backup-dir))
+    (make-directory conf-backup-dir))
+(write-file (concat conf-backup-dir "conf.org"))
+
+(if (file-exists-p user-emacs-directory)
+    (delete-directory user-emacs-directory t))
+(make-directory user-emacs-directory)
+
+<<pivot-reinstall-cfg>>
+#+end_src
+* Preamble
+This section contains code required to load and evaluate this configuration file.
+
+** init.el
+Emacs requires an ~init.el~ file to get anything done. Luckily for the literacy of this configuration, only a single line is required:
+#+name: init-el-file
+#+begin_src emacs-lisp :tangle no :eval never
+(org-babel-load-file (concat user-emacs-directory "conf.org"))
+#+end_src
+
+The above is in a separate file, while all other elisp snippets in this document are self contained and executed as-such.
+
+Too lazy to copy over this file yourself? =C-c C-c= / execute the following block:
+#+name: write-init-el
+#+begin_src emacs-lisp :tangle no :noweb yes :results silent
+(defmacro requote (form) (format "%S" form))
+(if (not (file-exists-p user-emacs-directory)) (make-directory user-emacs-directory))
+(write-region (requote <<init-el-file>>) nil (concat user-emacs-directory "init.el"))
+#+end_src
+
+** Custom File
+Every time Emacs loads, it [re]generates some package management code. Typically, this is placed at the top of ~init.el~. That's bad for versioning and nuking configs. By asking Emacs to place that into a different file, these problems can be addressed. And if any package problems present themselves, all that needs to be done is delete the generated ~auto.el~ and everything will probably fix itself.
+
+#+begin_src emacs-lisp :results silent
+(setq custom-file (concat user-emacs-directory "auto.el"))
+(if (file-exists-p custom-file)
+    (load-file custom-file))
+#+end_src
+
+** Bootstrapping use-package
+~use-package~ is a really handy tool for downloading and configuring packages. Problem is, it's not a part of Emacs by default. Therefore to do anything useful it needs to be loaded. The following bootstraps ~use-package~ so that if it is not installed (for example, on a clean system) configuration can continue.
+
+The easiest way to do so requires ~package.el~, a tool that /is/ built into Emacs. That can be initialized like so:
+#+begin_src emacs-lisp :results silent
+(require 'package)
+(setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
+                         ("melpa" . "https://melpa.org/packages/")
+			 ("org" . "http://orgmode.org/elpa/")))
+(package-initialize)
+#+end_src
+
+The bootstrapping is done as so:
+#+begin_src emacs-lisp :results silent
+(eval-after-load 'gnutls
+  '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'async) ; required somewhat recently
+  (package-install 'use-package))
+(eval-when-compile
+  (require 'async)
+  (require 'use-package))
+(setq use-package-always-ensure t) ; docs say this is deprecated but things break when it's not included
+#+end_src
+
+The following is used to get ~:ensure-system-package~ from ~use-package~:
+#+begin_src emacs-lisp :results silent
+(use-package use-package-ensure-system-package
+  :ensure t)
+#+end_src
+
+*Note:* I don't do any Emacs package development so using ~straight.el~ instead of ~package.el~ is a useless step for me.
+
+* Visual Configuration
+** Default Display Settings
+Simple settings to get rid of things I dislike.
+#+begin_src emacs-lisp
+  (setq inhibit-startup-screen t)
+  (setq initial-scratch-message "")
+  (menu-bar-mode -1)
+  (scroll-bar-mode -1)
+  (tool-bar-mode -1)
+  (global-visual-line-mode 1)
+#+end_src
+** Theme and Font
+[[https://github.com/kootenpv/emacs-kooten-theme][Kooten]] is a dark Emacs theme with mild colors but high contrast between those colors. It is also red-green colorblind friendly, something I greatly appreciate for self-evident reasons. This addition places it further up on my preference list than other popular dark themes.
+
+My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pro]]. I just happen to like it.
+#+begin_src emacs-lisp
+  (use-package kooten-theme
+  :config
+  (load-theme 'kooten t)
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 102))
+#+end_src
+
+#+RESULTS:
+: t
+
+** Rainbow Delimiters
+If you haven't heard of [[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimeters]] I *highly* recommend it. Currently the below turns it on for all programming modes; I have yet to have this cause any problems.
+#+begin_src emacs-lisp
+  (use-package rainbow-delimiters
+    :config
+    (add-hook 'prog-mode-hook 'rainbow-delimiters-mode))
+#+end_src
+** Modeline
+Nothing much to see here.
+#+begin_src emacs-lisp
+(setq column-number-mode t)
+(use-package diminish)
+#+end_src
+* Global Keybindings
+These are keybindings I find useful to add (or remove) during normal operation.
+
+** C-z
+Why do these keybindings even exist?
+#+begin_src emacs-lisp
+(global-unset-key (kbd "C-z"))
+(global-unset-key (kbd "C-x C-z"))
+#+end_src
+
+** C-backspace and C-delete
+The default behavior of these two keybindings is to move the removed text into the kill ring. I only find this annoying, so the following does it correctly:
+
+#+begin_src emacs-lisp
+(defun delete-word (arg)
+  "Delete characters forward until encountering the end of a word.
+With argument ARG, do this that many times."
+  (interactive "p")
+  (delete-region (point) (progn (forward-word arg) (point))))
+
+(defun backward-delete-word (arg)
+  "Delete characters backward until encountering the beginning of a word.
+With argument ARG, do this that many times."
+  (interactive "p")
+  (delete-word (- arg)))
+
+(global-set-key [C-backspace] 'backward-delete-word)
+(global-set-key [C-delete]    'delete-word)
+#+end_src
+
+** Duplicate Line
+I find this keybinding often useful when setting up several similar lines and not wanting to bother with a in-language macro for the short task. The below enables it as ~C-d~ globally. It is also re-overwritten in ~prog-mode~ to ensure it's not overwritten by other keybindings when it matters.
+
+#+begin_src emacs-lisp
+(defun duplicate-line (arg)
+  "Duplicate current line, leaving point in lower line."
+  (interactive "*p")
+
+  ;; save the point for undo
+  (setq buffer-undo-list (cons (point) buffer-undo-list))
+
+  ;; local variables for start and end of line
+  (let ((bol (save-excursion (beginning-of-line) (point)))
+        eol)
+    (save-excursion
+
+      ;; don't use forward-line for this, because you would have
+      ;; to check whether you are at the end of the buffer
+      (end-of-line)
+      (setq eol (point))
+
+      ;; store the line and disable the recording of undo information
+      (let ((line (buffer-substring bol eol))
+            (buffer-undo-list t)
+            (count arg))
+        ;; insert the line arg times
+        (while (> count 0)
+          (newline)         ;; because there is no newline in 'line'
+          (insert line)
+          (setq count (1- count)))
+        )
+
+      ;; create the undo information
+      (setq buffer-undo-list (cons (cons eol (point)) buffer-undo-list)))
+    ) ; end-of-let
+
+  ;; put the point in the lowest line and return
+  (next-line arg))
+
+(global-set-key (kbd "C-d") 'duplicate-line)
+(add-hook 'prog-mode-hook
+          (lambda () (local-set-key (kbd "C-d") 'duplicate-line)))
+
+#+end_src
+
+** Revert Buffer
+I use this one somewhat frequently, usually as a workaround for not finishing configuration of other things.
+#+begin_src emacs-lisp
+  (defun revert-buffer-smart ()
+    (if (or (not (buffer-modified-p))
+            (yes-or-no-p (format "Buffer '%s' changed on disk. Really revert?" (buffer-name))))
+        (revert-buffer :ignore-auto :noconfirm)
+      (message "Buffer left unchanged"))) 
+
+  (global-set-key
+   (kbd "C-c r b")
+   (lambda (&optional title)
+     "Revert buffer, only stopping to confirm if the buffer has been edited."
+     (interactive "P")
+     (revert-buffer-smart)))
+#+end_src
+
+* Vterm
+** Query On Exit
+Normally, whenever emacs kills a vterm buffer, it alerts the user of a running process. This process, of course, is the shell itself. This, in my opinion, is a useless check. However, outright disabling it is trouble. If vterm's shell is actually executing a command, emacs __should__ alert the user.
+
+This can be done with some shell-side configuration. First, the following elisp functions are defined, later to be exposed to vterm. Because vterm can call exported elisp functions, these will allow shell to indicate whether or not a command is in progress:
+#+begin_src emacs-lisp
+(defun vterm-set-active (shell-pid)
+"Tells emacs that the shell attached to a vterm instance is working and should not be killed"
+(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) t))
+
+(defun vterm-set-idle (shell-pid)
+"Tells emacs that the shell attached to a vterm instance is idle, and can safely be killed"
+(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) nil))
+#+end_src
+
+My preferred shell is fish. The configuration required is in two parts. The first sets the vterm host buffer as active right before every command is executed:
+#+begin_src fish
+switch $TERM
+    case xterm-256color # only in vterm
+        function vterm_before --on-event fish_preexec
+            vterm_cmd vterm-set-active %self
+        end
+end
+#+end_src
+
+The second part deals with setting the buffer as idle. While ~vterm_after~ may sound like the correct way to go based on the above config snippet, as it turns out ~vterm_after~ only executes on /successful/ completion. Getting interrupted by a ~SIGKILL~ would not quality, and the buffer would remain active. The solution is a surprisingly simple one: set the buffer as idle whenever the prompt is printed. This can be done as follows:
+#+begin_src fish
+# This appends to the existing fish_prompt. Place this immediatly after a custom fish_prompt, at the end of your fish_config before other vterm integration, or anywhere inbetween
+functions -c fish_prompt old_fish_prompt
+function fish_prompt
+    old_fish_prompt
+    switch $TERM
+	case xterm-256color # only in vterm
+	    vterm_cmd vterm-set-idle %self
+    end
+end
+#+end_src
+
+** Other Shell-Side Configuration
+I use additional fish configuration in order to integrate with emacs. Most of the following has been taken from [[https://github.com/akermu/emacs-libvterm/blob/master/README.md#shell-side-configuration][vterm's shell-side configuration recommendations]]:
+#+begin_src fish
+function vterm_printf;
+    if [ -n "$TMUX" ]
+        # tell tmux to pass the escape sequences through
+        # (Source: http://permalink.gmane.org/gmane.comp.terminal-emulators.tmux.user/1324)
+        printf "\ePtmux;\e\e]%s\007\e\\" "$argv"
+    else if string match -q -- "screen*" "$TERM"
+        # GNU screen (screen, screen-256color, screen-256color-bce)
+        printf "\eP\e]%s\007\e\\" "$argv"
+    else
+        printf "\e]%s\e\\" "$argv"
+    end
+end
+
+function vterm_prompt_end --description 'Used for directory tracking in vterm'
+    vterm_printf '51;A'(whoami)'@'(hostname)':'(pwd)
+end
+
+function vterm_cmd --description 'Run an emacs command among the ones been defined in vterm-eval-cmds.'
+    set -l vterm_elisp ()
+    for arg in $argv
+        set -a vterm_elisp (printf '"%s" ' (string replace -a -r '([\\\\"])' '\\\\\\\\$1' $arg))
+    end
+    vterm_printf '51;E'(string join '' $vterm_elisp)
+end
+
+# my custom fish_prompt with the addition in the previous code block goes somewhere in here
+
+functions -c fish_prompt vterm_old_fish_prompt
+function fish_prompt --description 'Write out the prompt; do not replace this. Instead, put this at end of your file.'
+    printf "%b" (string join "\n" (vterm_old_fish_prompt))
+    vterm_prompt_end
+end
+#+end_src
+
+I also use a custom ~fish-title~ to give vterm's buffers much better information
+#+begin_src fish
+function fish_title
+    set USERNAME (whoami)
+    set HOSTNAME (hostname)
+
+    if test "$HOSTNAME" = "shizcow"
+	# on local machine
+	if test "$USERNAME" != "notroot"
+	    # worth printing
+	    echo "$USERNAME:"
+	end
+    else
+	# ssh
+	echo "$USERNAME@$HOSTNAME:"
+    end
+    
+    if test (dirs | head -n1) != "/"
+	dirs | head -n1 | tr -d '\n'
+    end
+    echo "/"
+end
+#+end_src
+
+I may eventually post a link to my full ~config.fish~ here.
+
+** Final Configuration
+There are the final configurations done to vterm. They mostly just pass through some additional keybindings and expose the previously defined idle-switching functions:
+#+begin_src emacs-lisp
+  (use-package vterm
+  :ensure-system-package fish
+  :init
+  (setq vterm-shell "fish")
+  (setq vterm-kill-buffer-on-exit "t")
+  (setq vterm-buffer-name-string "vterm %s")
+  :config
+  (define-key vterm-mode-map (kbd "M-<up>")    #'vterm--self-insert)
+  (define-key vterm-mode-map (kbd "M-<down>")  #'vterm--self-insert)
+  (define-key vterm-mode-map (kbd "M-<left>")  #'vterm--self-insert)
+  (define-key vterm-mode-map (kbd "M-<right>") #'vterm--self-insert)
+  (define-key vterm-mode-map (kbd "C-<left>")  #'vterm--self-insert)
+  (define-key vterm-mode-map (kbd "C-<right>") #'vterm--self-insert)
+  (define-key vterm-mode-map [C-backspace]     #'vterm--self-insert)
+  (define-key vterm-mode-map [C-delete]        #'vterm--self-insert)
+  (push (list "vterm-set-idle"   'vterm-set-idle)   vterm-eval-cmds)
+  (push (list "vterm-set-active" 'vterm-set-active) vterm-eval-cmds))
+#+end_src
+
+* Org
+I have yet to dig into org-mode configuring. As such, the bulk of this is taken from [[https://gitlab.com/slondr/emacs-config/-/blob/master/lib/org.el][slondr's org.el]] configuration file.
+
+** XeLaTeX and Additional Processing
+XeLaTeX is better than PdfLaTeX by a mile. Set it to the default engine.
+
+Also, configure =bibtex= and =sage= to post-process files. While speed isn't really important to me, I don't like redundant exporting. Therefore, this will run a first pass of =xelatex= and only run other things and further passes if required.
+
+#+begin_src emacs-lisp :results silent
+(setq org-latex-pdf-process
+      ; Always need a first pass
+      '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
+	    ; bibtex needs some help getting started, so if there is no bibtex file, gen
+        ; once generated (second+ pass), could be empty. If they're empty, no need to run:
+        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b ;fi'"
+        ; "Empty" sagetex files are always 5 lines long
+        ; This could change in the future, but I don't want to write a proper test right now
+        "sh -c 'if [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then sage %b.sagetex.sage ;fi'"
+        ; Finally, combine the two tests; if either are done, re-run xelatex
+        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] || [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"))
+#+end_src
+
+** General Config
+I have yet to understand the vast majority of this:
+#+begin_src emacs-lisp :results silent
+(require 'ox-publish)
+
+(use-package org
+  :ensure org-plus-contrib
+  :init
+  (setq org-support-shift-select t)
+  (setq org-src-fontify-natively t
+        org-confirm-babel-evaluate nil
+        org-src-preserve-indentation t)
+  :config
+  (require 'ox-extra)
+  (ox-extras-activate '(ignore-headlines))
+  :custom
+  (org-latex-listings 'minted)
+  (org-latex-minted-options '(("frame" "lines") ("linenos=true")))
+  (org-latex-packages-alist '(("" "minted")))
+  (org-html-doctype "html5")	; default to HTML5 output
+  (org-html-html5-fancy t)		; enable fancy new tags
+  (org-html-postamble nil)		; disable the postamble
+  (org-html-postamble-format '(("en" "<hr></hr><p class=\"author\">Author: %a</p><p class=\"date\">Date: %d</p>")))
+  (org-html-preamble nil)		; disable the preamble
+  (org-html-metadata-timestamp-format "%u, %B %e, %Y")
+  (org-preview-latex-process-alist
+   (quote
+    ((dvipng :programs ("lualatex" "dvipng")
+             :description "dvi > png" :message "you need to install the programs: latex and dvipng." :image-input-type "dvi" :image-output-type "png" :image-size-adjust
+             (1.0 . 1.0)
+             :latex-compiler
+             ("lualatex -output-format dvi -interaction nonstopmode -output-directory %o %f")
+             :image-converter
+             ("dvipng -fg %F -bg %B -D %D -T tight -o %O %f"))
+     (dvisvgm :programs ("latex" "dvisvgm")
+              :description "dvi > svg" :message "you need to install the programs: latex and dvisvgm." :use-xcolor t :image-input-type "xdv" :image-output-type "svg" :image-size-adjust
+              (1.7 . 1.5) :latex-compiler
+              ("xelatex -no-pdf -interaction nonstopmode -output-directory %o %f")
+              :image-converter ("dvisvgm %f -n -b min -c %S -o %O"))
+     (imagemagick :programs
+                  ("latex" "convert")
+                  :description "pdf > png" :message "you need to install the programs: latex and imagemagick." :use-xcolor t :image-input-type "pdf" :image-output-type "png" :image-size-adjust
+                  (1.0 . 1.0)
+                  :latex-compiler
+                  ("xelatex -no-pdf -interaction nonstopmode -output-directory %o %f")
+                  :image-converter
+                  ("convert -density %D -trim -antialias %f -quality 100 %O")))))
+  (org-preview-latex-default-process 'dvisvgm)
+  :config
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (org-indent-mode)
+              (visual-line-mode)
+              (flyspell-mode)))
+  (require 'ox-latex)
+  (add-to-list 'org-latex-classes
+               '("apa7"
+                 "\\documentclass{apa7}"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+  (add-to-list 'org-latex-classes
+               '("memo"
+                 "\\documentclass[12pt]{article}
+\\makeatletter
+\\renewcommand\\section{\\@startsection {section}{1}{\\z@}
+                                   {-0.75ex \\@plus -0.3ex \\@minus -.1ex}
+                                   {0.5ex \\@plus.02ex}
+                                   {\\normalfont\\large\\bfseries}}
+\\renewcommand\\subsection{\\@startsection {section}{2}{\\z@}
+                                   {-0.5ex \\@plus -0.2ex \\@minus -.1ex}
+                                   {0.333ex \\@plus.02ex}
+                                   {\\normalfont\\normalsize\\underline}}
+\\renewcommand\\subsubsection{\\@startsection {section}{3}{\\z@}
+                                   {-0.25ex \\@plus -0.1ex \\@minus -0ex}
+                                   {0.167ex \\@plus.02ex}
+                                   {\\normalfont\\normalsize\\textit}}
+\\makeatother"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+  (customize-set-value 'org-latex-hyperref-template "\\hypersetup{
+ pdfauthor={%a},
+ pdftitle={%t},
+ pdfkeywords={%k},
+ pdfsubject={%d},
+ pdfcreator={%c}, 
+ pdflang={%L},
+pdfborderstyle={/S/U/W 1}}\n")
+  (add-to-list 'org-latex-default-packages-alist '("" "natbib" "") t)
+  (add-to-list 'org-latex-default-packages-alist '("" "sagetex" "") t)
+
+  )
+#+end_src
+
+** Additional Config
+#+begin_src emacs-lisp
+
+(use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
+
+(setq org-agenda-files '("~/org/agenda/"))
+
+;; org-reveal
+(use-package ox-reveal
+  :after org
+  :ensure t ; ree
+  :custom (org-reveal-root "https://cdn.jsdelivr.net/npm/reveal.js"))
+
+#+end_src
+
+#+RESULTS:
+
+What I do understand is I need Matlab in org-mode:
+#+begin_src emacs-lisp :results silent
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((matlab . t) (python . t)))
+#+end_src
+** Org-Ref
+#+begin_src emacs-lisp :results silent
+(use-package org-ref
+  :after org
+  :init
+  (setq org-ref-bibliography-notes "~/Documents/org-ref/notes.org"
+	org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
+	org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
+
+  (unless (file-exists-p org-ref-pdf-directory)
+    (make-directory org-ref-pdf-directory t))
+
+  (setq bibtex-autokey-year-length 4
+	bibtex-autokey-name-year-separator "-"
+	bibtex-autokey-year-title-separator "-"
+	bibtex-autokey-titleword-separator "-"
+	bibtex-autokey-titlewords 2
+	bibtex-autokey-titlewords-stretch 1
+	bibtex-autokey-titleword-length 5)
+  (require 'org-ref)
+  (require 'org-ref-pdf)
+  (require 'org-ref-url-utils)
+  )
+
+#+end_src
+
+* Filesystem Clutter
+Emacs's default behavior clutters the filesystem a lot. These configurations aim to mitigate those issues while maintaining functionality.
+
+** Backups
+Taken from the [[https://www.emacswiki.org/emacs/BackupDirectory][Emacs Wiki]]. Note this does AutoSaves as well as backup files.
+#+begin_src emacs-lisp
+  (setq backup-by-copying t
+  backup-directory-alist
+  `(("." . ,(concat user-emacs-directory "backups")))
+  delete-old-versions t
+  kept-new-versions 6
+  kept-old-versions 2
+  version-control t)
+#+end_src
+
+** Lockfiles
+These tend to screw with poorly put together build systems so I just disable them. I don't really have a use for them anyway.
+#+begin_src emacs-lisp
+(setf create-lockfiles nil)
+#+end_src
+
+* Programming
+** Syntax checking
+Flycheck is a better alternative to the legacy flymake.
+Also, it's a soft dependency of lsp.
+#+begin_src emacs-lisp :results silent
+  (use-package flycheck
+    :after exec-path-from-shell)
+#+end_src
+** LSP
+I dislike __most__ of LSP's functionality. It's too distracting when my buffers get resized and my text moved around. This disables it, while keeping what I consider to be the good features. There will be much more configuration in the future.
+#+begin_src emacs-lisp :results silent
+  (use-package lsp-mode
+    :after flycheck
+    :init
+    (setq lsp-signature-render-documentation nil))
+  (use-package lsp-ui
+    :after lsp-mode
+    :init
+    (setq lsp-ui-doc-enable nil)
+    (setq lsp-ui-peek-enable nil)
+    (setq lsp-ui-sideline-show-hover nil)
+    (setq lsp-ui-sideline-show-code-actions nil)
+    (setq lsp-ui-sideline-show-diagnostics nil))
+#+end_src
+** Languages
+#+begin_src emacs-lisp :results silent
+(use-package arduino-mode)
+(use-package cmake-mode)
+(use-package fish-mode)
+(use-package go-mode
+  :init
+  (defun go-setup () ; why does go set this to a god-awful 8
+    (setq tab-width 4))
+  :config
+  (add-hook 'go-mode-hook 'go-setup))
+(use-package markdown-mode)
+(use-package matlab
+  :ensure matlab-mode
+  :config
+  (add-to-list
+   'auto-mode-alist
+   '("\\.m\\'" . matlab-mode))
+  (setq matlab-indent-function t)
+  (setq matlab-shell-command "matlab"))
+(use-package mips-mode 
+  :after org
+  :mode "\\.mips$"
+  :config
+  (require 'ox-latex)
+  (add-to-list 'org-latex-minted-langs '(mips "asm")))
+(use-package rjsx-mode)
+(use-package rustic
+  :after lsp-mode
+  :ensure-system-package rust-analyzer
+  :ensure-system-package rustfmt
+  :ensure-system-package rls
+  :init
+  (setq lsp-rust-show-warnings nil)
+  :custom
+  (rustic-lsp-server 'rust-analyzer)
+  :config
+  (remove-hook 'rustic-mode-hook 'flycheck-mode)
+  (add-hook 'rustic-mode-hook (lambda () (flycheck-mode -1)))
+  (add-hook 'before-save-hook (lambda () (when (eq 'rustic-mode major-mode)
+                                           (progn
+                                             (lsp-format-buffer)
+                                             (indent-for-tab-command))))))
+(use-package toml-mode)
+(use-package verilog-mode
+  :init
+  (setq verilog-auto-newline nil))
+#+end_src
+
+* Utility functions
+** Revert All Buffers
+#+begin_src emacs-lisp
+(defun revert-all-buffers ()
+  "Refreshes all open buffers from their respective files."
+  (interactive)
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (and (buffer-file-name) (file-exists-p (buffer-file-name)) (not (buffer-modified-p)))
+	(revert-buffer t t t) )))
+  (message "Refreshed open files."))
+#+end_src
+* Miscellaneous
+PDF tools is a better PDF viewer than the default DocView. It uses a client-server interface set up for each session by =pdf-tools-install=.
+#+begin_src emacs-lisp
+  (use-package pdf-tools
+    :config (pdf-tools-install))
+#+end_src

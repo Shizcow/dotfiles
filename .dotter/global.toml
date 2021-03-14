@@ -1,8 +1,6 @@
-[helpers]
-
 [default]
-depends = []
+depends = ["emacs"]
 
-[default.files]
-
-[default.variables]
+[emacs.files]
+"emacs/conf.org" = "~/.emacs.d/conf.org"
+"emacs/init.el" = "~/.emacs.d/init.el"
