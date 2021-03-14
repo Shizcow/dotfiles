@@ -6,6 +6,7 @@ depends = ["emacs", "i3", "fish"]
 "emacs/init.el" = "~/.emacs.d/init.el"
 
 [i3.files]
+xinitrc = "~/.xinitrc"
 Xresources = "~/.Xresources"
 autorandr = "~/.config/autorandr"
 feh = "~/.fehbg"
