@@ -1,5 +1,5 @@
 [default]
-depends = ["emacs", "i3", "shells"]
+depends = ["emacs", "i3", "shells", "misc"]
 
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
@@ -17,3 +17,6 @@ wallpapers = { target = "~/.config/wallpapers", type = "symbolic" }
 [shells.files]
 "config.fish" = "~/.config/fish/config.fish"
 "init.sage" = "~/.sage/init.sage"
+
+[misc.files]
+global_gitignore = "~/.gitignore"
