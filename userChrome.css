@@ -1,0 +1,14 @@
+/* Make things work with FF */
+@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+
+/* fix bad font sizes in searchbar (and such) on hidpi displays */
+* {
+    font-size: 13pt !important;
+}
+
+/* makes that white transition page that appears when you're waiting for the actual web page to load dark */
+#browser vbox#appcontent tabbrowser, #content, #tabbrowser-tabpanels, browser[type=content-primary], browser[type=content] > html {
+    background: #2A292E !important;
+    background-color: #2A292E !important;
+    color: #2A292E !important; 
+}
