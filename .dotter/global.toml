@@ -23,4 +23,4 @@ wallpapers = { target = "~/.config/wallpapers", type = "symbolic" }
 global_gitignore = "~/.gitignore"
 ssh = "~/.ssh/config"
 
-# "userChrome.css" = "$FF_CHROME_PATH/chrome/userChrome.css"
+# "userChrome.css" = "(command_output 'echo re')/chrome/userChrome.css"
