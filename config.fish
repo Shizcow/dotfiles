@@ -1,9 +1,8 @@
 set fish_greeting
 
-# TODO:
-# - Only do this for interactive shells
-# - Only do this if `thefuck` is installed (don't want errors!)
-thefuck --alias | source
+if status is-interactive && type -q thefuck
+    thefuck --alias | source
+end
 
 alias sysup='pacaur --noedit -Syu (cat ~/.config/i3status-rs/.pacaurignored ~/.config/i3status-rs/.repo_ignored | awk \'{printf"--ignore %s ", $1}\')'
 
