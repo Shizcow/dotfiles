@@ -1,5 +1,5 @@
 [default]
-depends = ["emacs", "i3", "shells", "misc"]
+depends = ["emacs", "i3", "shells", "qmk", "misc"]
 
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
@@ -18,6 +18,9 @@ wallpapers = { target = "~/.config/wallpapers", type = "symbolic" }
 [shells.files]
 "config.fish" = "~/.config/fish/config.fish"
 "init.sage" = "~/.sage/init.sage"
+
+[qmk.files]
+"qmk/qmk.ini" = "~/.config/qmk/qmk.ini"
 
 [misc.files]
 global_gitignore = "~/.gitignore"
