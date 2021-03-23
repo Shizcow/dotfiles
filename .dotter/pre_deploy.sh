@@ -4,7 +4,7 @@
 export FF_CHROME_PATH=$(find ~/.mozilla/firefox/ -type d -name "*.default")
 
 # Force a pull of the qmk submodule (this is pretty much qmk setup)
-git pull --recurse-submodules
+git submodule update --init --recursive
 # and place symlinks to my keymap correctly
 mkdir -p qmk/firmware/keyboards/kbdfans/kbd75/keymaps/shizcow
 ln -s qmk/kbd75_keymap.c qmk/firmware/keyboards/kbdfans/kbd75/keymaps/shizcow/keymap.c
