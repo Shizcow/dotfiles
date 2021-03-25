@@ -9,7 +9,6 @@ else
 fi
 
 # Fix the qmk homedir to point inside this repo (I store my firmware here)
-# Note: qmk_cli does not currently follow symlinks -- I've filed an issue
 if type qmk > /dev/null; then
     qmk config user.qmk_home=$(pwd)/qmk/firmware
 else
