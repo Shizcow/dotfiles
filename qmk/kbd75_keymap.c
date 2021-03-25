@@ -3,44 +3,74 @@
 #define _BL 0
 #define _FL 1
 
-#define CAPSLOCK_INDICATOR_MODE 19
-#define CAPSLOCK_HSV HSV_WHITE
-#define CAPSLOCK_SPEED 255
+enum custom_keycodes {
+    RGB_DEF = SAFE_RANGE,
+};
+
+typedef struct AnimationInfo {
+  uint8_t mode;
+  HSV hsv;
+  uint8_t speed;
+  bool enabled;
+} AnimationInfo;
+
+void AnimationInfo_to_kbd(AnimationInfo a) {
+  if(a.enabled)
+    rgblight_enable();
+  else
+    rgblight_disable();
+  rgblight_mode(a.mode);
+  rgblight_sethsv(a.hsv.h, a.hsv.s, a.hsv.v);
+  rgblight_set_speed(a.speed);
+}
+
+AnimationInfo AnimationInfo_get_current(void) {
+  AnimationInfo ret = {
+    .mode = rgblight_get_mode(),
+    .enabled = rgblight_is_enabled(),
+    .speed = rgblight_get_speed(),
+    .hsv = {
+      .h = rgblight_get_hue(),
+      .s = rgblight_get_sat(),
+      .v = rgblight_get_val(),
+    },
+  };
+  return ret;
+}
+
+const static AnimationInfo DEFAULT_ANIMATION = {
+  .mode = 37,
+  .hsv = { 200, 240, 130 },
+  .speed = 50,
+  true
+};
+
+const static AnimationInfo CAPSLOCK_ANIMATION = {
+  .mode = 19,
+  .hsv = { HSV_WHITE },
+  .speed = 255,
+  true
+};
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   static bool is_caps_lock = false;
-  static uint8_t prev_mode;
-  static uint8_t prev_enabled;
-  static uint8_t prev_hue;
-  static uint8_t prev_sat;
-  static uint8_t prev_val;
-  static uint8_t prev_speed;
+  static AnimationInfo prev_animation;
   
   switch (keycode) {
   case KC_CAPS:
     if (record->event.pressed) {
       is_caps_lock = !is_caps_lock;
       if(is_caps_lock) {
-	
-	prev_mode = rgblight_get_mode();
-	prev_enabled = rgblight_is_enabled();
-	prev_hue = rgblight_get_hue();
-	prev_sat = rgblight_get_sat();
-	prev_val = rgblight_get_val();
-	prev_speed = rgblight_get_speed();
-
-	rgblight_enable();
-	rgblight_mode(CAPSLOCK_INDICATOR_MODE);
-	rgblight_sethsv(CAPSLOCK_HSV);
-	rgblight_set_speed(255);
+	prev_animation = AnimationInfo_get_current();
+	AnimationInfo_to_kbd(CAPSLOCK_ANIMATION);
       } else {
-	// restore state
-	if(!prev_enabled)
-	  rgblight_disable();
-	rgblight_mode(prev_mode);
-	rgblight_sethsv(prev_hue, prev_sat, prev_val);
-	rgblight_set_speed(prev_speed);
+	AnimationInfo_to_kbd(prev_animation);
       }
+    }
+    break;
+  case RGB_DEF:
+    if (record->event.pressed) {
+      AnimationInfo_to_kbd(DEFAULT_ANIMATION);
     }
     break;
   }
@@ -62,7 +92,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  RESET,    _______,
     _______,  RGB_TOG,  RGB_MOD,  RGB_HUI,  RGB_HUD,  RGB_SAI,  RGB_SAD,  RGB_VAI,  RGB_VAD,  _______,  _______,  _______,  _______,  _______,            _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,                      _______,  _______,
+    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,                      RGB_DEF,  _______,
     _______,  _______,  _______,  _______,  BL_DEC,   BL_TOGG,  BL_INC,   BL_STEP,  _______,  _______,  _______,  _______,  _______,            _______,  _______,
     _______,  _______,  _______,                      _______,  _______,  _______,                      _______,  _______,  _______,  _______,  _______,  _______
   ),
