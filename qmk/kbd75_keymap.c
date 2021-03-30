@@ -99,22 +99,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
     break;
   case KC_LCTL:
-    if(caps_swapped) {
-      if (record->event.pressed) {
-	register_code(KC_CAPS);
-      } else {
-	unregister_code(KC_CAPS);
-      }
-      return false;
-    }
-    break;
   case KC_CAPS:
     if(caps_swapped) {
-      if (record->event.pressed) {
-	register_code(KC_LCTL);
-      } else {
-	unregister_code(KC_LCTL);
-      }
+      (record->event.pressed ? register_code : unregister_code)(keycode == KC_CAPS ? KC_LCTL : KC_CAPS);
       return false;
     }
     break;
