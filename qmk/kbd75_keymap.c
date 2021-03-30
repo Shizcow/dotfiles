@@ -5,6 +5,8 @@
 
 enum custom_keycodes {
     RGB_DEF = SAFE_RANGE,
+    CL_TOG,
+    CL_ANIM_TOG,
 };
 
 typedef struct AnimationInfo {
@@ -55,10 +57,24 @@ const static AnimationInfo CAPSLOCK_ANIMATION = {
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   static bool is_caps_lock = false;
   static AnimationInfo prev_animation;
-  
+
+  static bool caps_swapped = false;
+  static bool caps_animation_swapped = false;
+
+  // RGB stuff
   switch (keycode) {
-  case KC_CAPS:
+  case CL_ANIM_TOG:
     if (record->event.pressed) {
+      caps_animation_swapped = !caps_animation_swapped;
+    }
+    break;
+  case KC_CAPS:
+  case KC_LCTRL:
+    if(keycode == KC_CAPS && caps_animation_swapped)
+      break;
+    if(keycode == KC_LCTRL && !caps_animation_swapped)
+      break;
+    if(record->event.pressed) {
       is_caps_lock = !is_caps_lock;
       if(is_caps_lock) {
 	prev_animation = AnimationInfo_get_current();
@@ -71,6 +87,35 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   case RGB_DEF:
     if (record->event.pressed) {
       AnimationInfo_to_kbd(DEFAULT_ANIMATION);
+    }
+    break;
+  }
+
+  // caps lock magic
+  switch (keycode) {
+  case CL_TOG:
+    if (record->event.pressed) {
+      caps_swapped = !caps_swapped;
+    }
+    break;
+  case KC_LCTL:
+    if(caps_swapped) {
+      if (record->event.pressed) {
+	register_code(KC_CAPS);
+      } else {
+	unregister_code(KC_CAPS);
+      }
+      return false;
+    }
+    break;
+  case KC_CAPS:
+    if(caps_swapped) {
+      if (record->event.pressed) {
+	register_code(KC_LCTL);
+      } else {
+	unregister_code(KC_LCTL);
+      }
+      return false;
     }
     break;
   }
@@ -89,11 +134,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [_FL] = LAYOUT(
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  RESET,    _______,
-    _______,  RGB_TOG,  RGB_MOD,  RGB_HUI,  RGB_HUD,  RGB_SAI,  RGB_SAD,  RGB_VAI,  RGB_VAD,  _______,  _______,  _______,  _______,  _______,            _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,                      RGB_DEF,  _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            _______,  _______,
-    _______,  _______,  _______,                      _______,  _______,  _______,                      _______,  _______,  _______,  _______,  _______,  _______
+    _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,
+    _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  RESET,    _______,
+    _______,     RGB_TOG,  RGB_MOD,  RGB_HUI,  RGB_HUD,  RGB_SAI,  RGB_SAD,  RGB_VAI,  RGB_VAD,  _______,  _______,  _______,  _______,  _______,            _______,
+    CL_TOG,      _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,                      RGB_DEF,  _______,
+    _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            _______,  _______,
+    CL_ANIM_TOG, _______,  _______,                      _______,  _______,  _______,                      _______,  _______,  _______,  _______,  _______,  _______
   ),
 };
