@@ -578,7 +578,7 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
 (use-package go-mode
   :init
   (defun go-setup () ; why does go set this to a god-awful 8
-    (setq tab-width 4))
+    (setq tab-width 2))
   :config
   (add-hook 'go-mode-hook 'go-setup))
 (use-package markdown-mode)
