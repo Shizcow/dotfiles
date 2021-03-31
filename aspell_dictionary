@@ -1,4 +1,4 @@
-personal_ws-1.1 en 64 
+personal_ws-1.1 en 67 
 APA
 Accelerometer
 Alexa's
@@ -30,14 +30,17 @@ Pavlik
 PiHoles
 Pohl
 Raspbian
+Systemd
 TDP
 TIVA
 TODO
 Vterm
 accuracies
 benchmarking
+bottlenecking
 capacitive
 disproportionally
+expandability
 expectedly
 ideation
 ideations
@@ -58,6 +61,7 @@ recency
 reproducibility
 runtimes
 subteam
+systemd
 transconductance
 triode
 unsupportive
