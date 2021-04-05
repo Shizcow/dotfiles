@@ -477,6 +477,15 @@ pdfborderstyle={/S/U/W 1}}\n")
 #+end_src
 
 ** Additional Config
+I use =M-x count-words= a lot, so have dedicated a keybinding:
+#+begin_src emacs-lisp :results silent
+(add-hook 'org-mode-hook
+          (lambda ()
+            (define-key org-mode-map (kbd "C-c w")
+              'count-words)))
+#+end_src
+
+Other stuff
 #+begin_src emacs-lisp
 
 (use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
