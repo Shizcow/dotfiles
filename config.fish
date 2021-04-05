@@ -61,6 +61,11 @@ function fish_user_key_bindings
     end
 end
 
+# Fish is special software that doesn't know what it's doing sometimes
+function fish_command_not_found
+    __fish_default_command_not_found_handler $argv
+end
+
 # TODO: use dotter for getting HOSTNAME and USERNAME, or something smarter?
 function fish_prompt
     set prompt_string ""
