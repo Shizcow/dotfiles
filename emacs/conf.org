@@ -123,7 +123,7 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
   (use-package kooten-theme
   :config
   (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 102))
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 60))
 #+end_src
 
 #+RESULTS:
@@ -376,7 +376,8 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
         ; This could change in the future, but I don't want to write a proper test right now
         "sh -c 'if [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then sage %b.sagetex.sage ;fi'"
         ; Finally, combine the two tests; if either are done, re-run xelatex
-        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] || [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"))
+        ; also check for table of contents changes
+        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] || [[ $(wc -l < %b.sagetex.sage) != 5 ]] || [[ $(grep \"File \\`%b.out\\' has changed\" %b.log) ]] ;then xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"))
 #+end_src
 
 ** General Config
@@ -443,6 +444,38 @@ I have yet to understand the vast majority of this:
                  ("\\paragraph{%s}" . "\\paragraph*{%s}")
                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
   (add-to-list 'org-latex-classes
+               '("manual"
+                 "\\documentclass{memoir}
+\\openany
+\\usepackage{etoolbox}
+\\makeatletter
+\\patchcmd{\\@smemmain}{\\cleardoublepage}{\\clearpage}{}{}
+\\patchcmd{\\@smemmain}{\\cleardoublepage}{\\clearpage}{}{}
+\\def\\maketitle{%
+  \\null
+  \\thispagestyle{empty}%
+  \\vfill
+  \\begin{center}\\leavevmode
+    \\normalfont
+    {\\LARGE\\raggedleft \\@author\\par}%
+    \\hrulefill\\par
+    {\\huge\\raggedright \\@title\\par}%
+    \\vskip 1cm
+%    {\\Large \\@date\\par}%
+  \\end{center}%
+  \\vfill
+  \\null
+  \\clearpage
+  }
+\\frontmatter
+\\makeatother
+\\headstyles{memman}
+\\chapterstyle{demo3}"
+                 ("\\chapter{%s}" . "\\chapter*{%s}")
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+  (add-to-list 'org-latex-classes
                '("memo"
                  "\\documentclass[12pt]{article}
 \\makeatletter
@@ -469,6 +502,7 @@ I have yet to understand the vast majority of this:
  pdfsubject={%d},
  pdfcreator={%c}, 
  pdflang={%L},
+pdflinkmargin=1pt,
 pdfborderstyle={/S/U/W 1}}\n")
   (add-to-list 'org-latex-default-packages-alist '("" "natbib" "") t)
   (add-to-list 'org-latex-default-packages-alist '("" "sagetex" "") t)
@@ -584,6 +618,8 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
 (use-package arduino-mode)
 (use-package cmake-mode)
 (use-package fish-mode)
+(use-package dockerfile-mode)
+(use-package docker-compose-mode)
 (use-package go-mode
   :init
   (defun go-setup () ; why does go set this to a god-awful 8
