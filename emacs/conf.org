@@ -376,7 +376,7 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
         ; This could change in the future, but I don't want to write a proper test right now
         "sh -c 'if [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then sage %b.sagetex.sage ;fi'"
         ; Finally, combine the two tests; if either are done, re-run xelatex
-        ; also check for table of contents changes
+        ; also check for table of contents changes -- if there's only a single run it fails
         "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] || [[ $(wc -l < %b.sagetex.sage) != 5 ]] || [[ $(grep \"File \\`%b.out\\' has changed\" %b.log) ]] ;then xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"))
 #+end_src
 
