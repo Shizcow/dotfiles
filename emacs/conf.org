@@ -8,9 +8,17 @@ To load this configuration into a running Emacs instance (optionally started as 
 
 #+name: test-install-cfg
 #+begin_src emacs-lisp :tangle no :results silent
-(when (eq (buffer-file-name (window-buffer (minibuffer-selected-window))) nil) ; give babel a place to tangle
-    (write-file (concat temporary-file-directory "emacs_conf_tmpwrite.org")))
-(org-babel-load-file (buffer-file-name (window-buffer (minibuffer-selected-window))))
+(when (or ; give babel space to compile if required
+       (not (boundp 'minibuffer-selected-window))
+       (eq (buffer-file-name
+	    (window-buffer (minibuffer-selected-window)))
+	   nil)) ; give babel a place to tangle
+  (write-file
+   (concat temporary-file-directory "emacs_conf_tmpwrite.org")))
+(org-babel-load-file
+ (buffer-file-name
+  (window-buffer
+   (minibuffer-selected-window))))
 #+end_src
 
 ** Installing
