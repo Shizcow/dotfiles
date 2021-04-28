@@ -447,7 +447,8 @@ I have yet to understand the vast majority of this:
   (require 'ox-latex)
   (add-to-list 'org-latex-classes
                '("apa7"
-                 "\\documentclass{apa7}"
+                 "\\documentclass{apa7}
+\\usepackage{natbib}"
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")
                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
@@ -455,13 +456,16 @@ I have yet to understand the vast majority of this:
                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
   (add-to-list 'org-latex-classes
                '("IEEE"
-                 "\\documentclass{IEEEtran}"
+                 "\\documentclass{IEEEtran}
+\\usepackage{cite}"
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+		 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
   (add-to-list 'org-latex-classes
                '("manual"
                  "\\documentclass{memoir}
+\\usepackage{natbib}
 \\openany
 \\usepackage{etoolbox}
 \\makeatletter
@@ -494,6 +498,7 @@ I have yet to understand the vast majority of this:
   (add-to-list 'org-latex-classes
                '("memo"
                  "\\documentclass[12pt]{article}
+\\usepackage{natbib}
 \\makeatletter
 \\renewcommand\\section{\\@startsection {section}{1}{\\z@}
                                    {-0.75ex \\@plus -0.3ex \\@minus -.1ex}
@@ -520,11 +525,11 @@ I have yet to understand the vast majority of this:
  pdflang={%L},
 pdflinkmargin=1pt,
 pdfborderstyle={/S/U/W 1}}\n")
-  (add-to-list 'org-latex-default-packages-alist '("" "natbib" "") t)
   (add-to-list 'org-latex-default-packages-alist '("" "sagetex" "") t)
 
   )
 #+end_src
+
 
 ** Additional Config
 I use =M-x count-words= a lot, so have dedicated a keybinding:
