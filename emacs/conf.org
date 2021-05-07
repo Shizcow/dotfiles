@@ -530,7 +530,56 @@ pdfborderstyle={/S/U/W 1}}\n")
   )
 #+end_src
 
+** Sage
+Sagemath is a Python-derived language which allows for high-level symbolic calculation.
+=ob-sagemath= is a package that allows integration with org-mode.
+The following elisp sets up =ob-sagemath=
 
+#+begin_src elisp :results silent
+(use-package sage-shell-mode)
+(use-package ob-sagemath
+  :after org
+  :after sage-shell-mode
+  :config
+  ;; Ob-sagemath supports only evaluating with a session.
+  (setq org-babel-default-header-args:sage '((:session . t)
+                                             (:results . "output"))))
+#+end_src
+
+*** Example
+The following is an example of placing sage text into an org-mode document with all the bells and whistles.
+This example shows how to invisibly typeset the output of a sage variable to latex.
+
+First, write some sage code.
+This code is not executed directly; instead it is noweb'd in by another block that also typesets =r= into latex.
+
+
+#+caption: Sample sage code label:code-sage-sample
+#+name: sage-1
+#+BEGIN_SRC sage :exports code :eval never
+# This calculation is just an example
+r=integral(x,x,1,2)
+#+END_SRC
+
+# The following block is the one that executes. ":wrap equation" is particularly important
+
+#+name: sage-1-noweb
+#+BEGIN_SRC sage :session foo :cache yes :exports results :results raw :wrap equation :noweb yes
+<<sage-1>>
+latex(r)
+#+END_SRC
+
+Executing the code above yields:
+
+#+caption: label:eq-sage-sample
+#+RESULTS[00a7b412a37687766457e36b31be031affb7bc8c]: sage-1-noweb
+#+begin_equation
+\frac{3}{2}
+#+end_equation
+
+This also allows integration with org-ref via the label attribute. See [Eq. ref:eq-sage-sample] for the contents of =r= after the code in [Lst. ref:code-sage-sample] is ran.
+
+*Note:* spawning a sage session is slow, but =ob-sagemath= re-uses sessions intelligently. Therefore, cache is not required.
 ** Additional Config
 I use =M-x count-words= a lot, so have dedicated a keybinding:
 #+begin_src emacs-lisp :results silent
