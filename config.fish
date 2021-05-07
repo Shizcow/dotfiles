@@ -4,7 +4,11 @@ if status is-interactive && type -q thefuck
     thefuck --alias | source
 end
 
-alias sysup='pacaur --noedit -Syu (cat ~/.config/i3status-rs/.pacaurignored ~/.config/i3status-rs/.repo_ignored | awk \'{printf"--ignore %s ", $1}\')'
+function sysup --description 'pacaur wrapper that handles a few extra things'
+    set ignore_flags (cat ~/.config/i3status-rs/.repo_ignored ~/.config/i3status-rs/.pacaurignored | awk '{printf" --ignore %s", $1}')
+    # this doesn't want to work in fish for some stupid reason
+    sh -xc "pacaur --noedit -Syu$ignore_flags"
+end
 
 export EDITOR=emacs
 
