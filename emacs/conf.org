@@ -381,13 +381,10 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
       '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
 	    ; bibtex needs some help getting started, so if there is no bibtex file, gen
         ; once generated (second+ pass), could be empty. If they're empty, no need to run:
-        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b ;fi'"
-        ; "Empty" sagetex files are always 5 lines long
-        ; This could change in the future, but I don't want to write a proper test right now
-        "sh -c 'if [[ $(wc -l < %b.sagetex.sage) != 5 ]] ;then sage %b.sagetex.sage ;fi'"
-        ; Finally, combine the two tests; if either are done, re-run xelatex
-        ; also check for table of contents changes -- if there's only a single run it fails
-        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] || [[ $(wc -l < %b.sagetex.sage) != 5 ]] || [[ $(grep \"File \\`%b.out\\' has changed\" %b.log) ]] ;then xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"))
+        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b && xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;fi'"
+        ; A few things (reference spawning/table of contents/figures/etc) change intermediary files
+	    ; This requires a re-run or two
+        "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'"))
 #+end_src
 
 ** General Config
@@ -524,10 +521,7 @@ I have yet to understand the vast majority of this:
  pdfcreator={%c}, 
  pdflang={%L},
 pdflinkmargin=1pt,
-pdfborderstyle={/S/U/W 1}}\n")
-  (add-to-list 'org-latex-default-packages-alist '("" "sagetex" "") t)
-
-  )
+pdfborderstyle={/S/U/W 1}}\n"))
 #+end_src
 
 ** Sage
