@@ -42,6 +42,7 @@ end
 
 # TODO:
 # - Make CSU ssh execute shell via pseudocommand instead of screw with bashprofile
+#   - This would make it so I don't need to use self_redirect for shell integration... will think about it
 #   - Or just wait until they get around to allowing us to use fish
 function ssh --wraps=ssh --description 'if ssh target is "cs", it has fish installed. Forward the ID of this fish process so emacs can mark the vterm buffer correctly'
     if test "$argv[1]" = "cs"
@@ -56,7 +57,6 @@ end
 # weird ssh stuff
 set self_redirect %self
 
-
 # !! support
 function bind_bang
     switch (commandline -t)[-1]
@@ -67,14 +67,8 @@ function bind_bang
     end
 end
 
-function subs_double_bang
-    # regex is fucking broken
-    commandline (commandline | sed 's/(?<=^[^\']*(\'[^\']*\'[^\']*)*)!!/'$history[1]'/g')
-end
-
 function fish_user_key_bindings
     bind ! bind_bang
-    #bind \eq subs_double_bang
     switch $TERM
 	# make fish somewhat competent at doing anything
         case rxvt-unicode-256color # urxvt
