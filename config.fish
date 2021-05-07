@@ -5,9 +5,30 @@ if status is-interactive && type -q thefuck
 end
 
 function sysup --description 'pacaur wrapper that handles a few extra things'
+    # Parse args
+    if test "$argv" = "--noconfirm"
+	set noconfirm_flag "--noconfirm"
+    else if test "$argv" = ""
+	set noconfirm_flag ""
+    else
+	echo 'sysup: invalid arguement' 1>&2
+	echo 'Usage: sysup [--noconfirm]' 1>&2
+	return 1
+    end
+    # gather data on what to ignore and what orphans to remove
     set ignore_flags (cat ~/.config/i3status-rs/.repo_ignored ~/.config/i3status-rs/.pacaurignored | awk '{printf" --ignore %s", $1}')
-    # this doesn't want to work in fish for some stupid reason
-    sh -xc "pacaur --noedit -Syu$ignore_flags"
+    set orphans (pacman -Qtdq)
+    # finally, run pacman
+    if test -n "$orphans"
+	# sometimes full system upgrades take a long time
+	# this may cause sudo to time out if ran as two separate commands, and prompt for password twice
+	# therefore, this is all ran as a single sudo command
+	sudo -- sh -xc "sudo -u $USER -- sh -c 'pacaur $noconfirm_flag --noedit -Syu$ignore_flags'; pacaur $noconfirm_flag -Rns $orphans"
+	echo "Finished system upgrade; removed orphaned package(s): $orphans"
+    else
+	sh -xc "pacaur $noconfirm_flag --noedit -Syu$ignore_flags"
+	echo "Finished system upgrade; no orphaned packages need removing"
+    end
 end
 
 export EDITOR=emacs
