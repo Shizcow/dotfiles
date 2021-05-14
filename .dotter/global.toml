@@ -14,6 +14,7 @@ autorandr = "~/.config/autorandr"
 feh = "~/.fehbg"
 # contains images, so should be symlinks
 wallpapers = { target = "~/.config/wallpapers", type = "symbolic" }
+i3status-rs = "~/.config/i3status-rs"
 
 [shells.files]
 "config.fish" = "~/.config/fish/config.fish"

@@ -1,0 +1,13 @@
+# I'm not using good toml parsing so this has zero error-checking
+# If a package is not specified here, assume always update
+# Packeges here require an extra pacaur call if appropriate, so query lightly
+
+[ungoogled-chromium] # specify a package name
+# options are "always", "major", "minor", "patch", "never", and empty/unmarked (default, never update)
+update_on = "never"
+
+[pulseaudio]
+update_on = "never"
+
+[libpulse]
+update_on = "never"
