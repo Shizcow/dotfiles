@@ -825,6 +825,13 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
 #+end_src
 
 ** Impatient
+Currently, I only use [[https://github.com/skeeto/impatient-mode][impatient-mode]] to render markdown,
+but I hope to hook it up to ox-html in the near future.
+For markdown, [[https://fletcherpenney.net/multimarkdown/][multimarkdown]] needs to be installed on the
+system.
+
+Below is the custom style-sheet I'm using to hook in to
+the currently running face:
 #+name: impatient-styles
 #+begin_src css
 body {background-color: %s;}
@@ -864,6 +871,18 @@ th {
   color: %s;
 }
 #+end_src
+
+[[https://fletcherpenney.net/multimarkdown/][Multimarkdown]] is great, but it doesn't get things perfectly
+in line according to [[https://github.github.com/gfm/][Github Flavored Markdown]]. the following script
+does some simple modifications to add some of those features.
+
+For code blocks, syntax highlighting is rather difficult.
+Multimarkdown doesn't get the job done, and I can't find anything
+better. As always, the answer is Emacs. But, because I don't want to
+write a parser myself, here I let org-mode do the heavy lifting,
+by having JavaScript scoop up the insides of any code blocks it sees,
+send that to Emacs, and replace in the result. This script simply connects
+to [[https://github.com/skeeto/emacs-web-server/blob/master/simple-httpd.el][httpd]]; the actual setup and processing is in the [[impatient-markdown-hooks][next block]].
 #+name: impatient-script
 #+begin_src js
 window.onload = function(){
@@ -889,9 +908,16 @@ window.onload = function(){
     [...document.getElementsByTagName('code')].forEach((el) => {
 	if(!el.className)
             return;
-	fetch('http://localhost:8069/babel-format?lang='
+	// get rid of &amp; and such
+	var div = document.createElement('div');
+	div.innerHTML = el.innerHTML.replace(/^\\s+|\\s+$/g, '').replaceAll('\\t', '    ');
+	var decoded = div.firstChild.nodeValue;
+console.log(decoded);
+console.log(btoa(decoded));
+	// and talk to the webserver
+	fetch('http://localhost:%s/babel-format?lang='
 	      + el.className +'&data='
-	      + btoa(el.innerHTML.replace(/^\\s+|\\s+$/g, '').replaceAll('\\t', '    ')).replaceAll('=', '~'))
+	      + btoa(decoded).replaceAll('=', '~'))
 	    .then(response => response.text())
 	    .then(text => {
 		el.innerHTML = text.replace('\\n', '').split('\\n').reverse().join('\\n').replace('\\n', '').replace('\\n', '').split('\\n').reverse().join('\\n');
@@ -899,10 +925,20 @@ window.onload = function(){
     });
 }
 #+end_src
+
+Gluing this all together is a bit of elisp, which serves the org-mode powered
+syntax highlighting servlet as well as tells impatient-mode how to handle
+markdown. Finally, there is an interactive function =markdown-preview=
+(already bound to =C-c C-c p=) which spins everything up and opens the
+corresponding impatient page in the web browser.
+#+name: impatient-markdown-hooks
 #+begin_src elisp :results silent :noweb no-export
 (defun color-to-css (color)
   (format "#%s"
 	  (mapconcat (lambda (x) (format "%02x" (/ x 256))) (color-values color) "")))
+
+(use-package simple-httpd
+  :config
 (defservlet babel-format text/plain (path args)
   (setq inhibit-message nil)
   (insert
@@ -915,14 +951,12 @@ window.onload = function(){
 	   (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
 	   (setq inhibit-message t)
 	   (org-export-to-file 'html tmpfile
-	     nil nil nil t nil
-	     )
+	     nil nil nil t nil)
 	   (setq inhibit-message nil)
 	   (let ((ret (get-string-from-file tmpfile)))
 	     (delete-file tmpfile)
 	     ret
-	     ))))))
-  )
+	     ))))))))
 
 (defun markdown-html (buffer)
   (princ
@@ -946,6 +980,7 @@ window.onload = function(){
 		   (color-to-css (face-attribute 'default                   :foreground nil t))
 		   (color-to-css (face-attribute 'region                    :background nil t))
 		   (color-to-css (face-attribute 'region                    :foreground nil t))
+		   httpd-port
 		   )
 	   (with-temp-buffer
 	     (let ((tmpname (buffer-name)))
@@ -956,19 +991,15 @@ window.onload = function(){
 
 (use-package impatient-mode
   :after markdown-mode
+  :after simple-httpd
   :config
   (defun markdown-preview (&optional output-buffer-name)
-    "Run `markdown-command' on the current buffer and view output in browser.
-When OUTPUT-BUFFER-NAME is given, insert the output in the buffer with
-that name."
+    "Run `markdown-command' on the current buffer and view output in browser."
     (interactive)
-    (setq httpd-port 8069)
-    (httpd-start)
+    (if (not (httpd-running-p)) (httpd-start))
     (impatient-mode 1)
     (imp-set-user-filter 'markdown-html)
-    (cl-incf imp-last-state)
-    
-    (start-process "" nil "xdg-open" (concat "http://localhost:8069/imp/live/" (buffer-name))))
+    (start-process "" nil "xdg-open" (format "http://localhost:%i/imp/live/%s" httpd-port (buffer-name))))
   )
 #+end_src
 * Circuits
