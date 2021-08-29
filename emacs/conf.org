@@ -862,13 +862,17 @@ td, th {
   border: 1px solid %s;
   padding: 8px;
 }
-
 th {
   padding-top: 12px;
   padding-bottom: 12px;
   text-align: left;
   background-color: %s;
   color: %s;
+}
+sub {
+    font-size: 100%%;
+    vertical-align: baseline;
+    text-decoration: line-through;
 }
 #+end_src
 
@@ -886,13 +890,6 @@ to [[https://github.com/skeeto/emacs-web-server/blob/master/simple-httpd.el][htt
 #+name: impatient-script
 #+begin_src js
 window.onload = function(){
-    // Fix strikethrough
-    [...document.getElementsByTagName('sub')].forEach((el) => {
-	if(el.children.length == 1 && el.children[0].tagName == 'SUB') {
-	    el.outerHTML = '<strike>' + el.children[0].innerHTML + '</strike>';
-	}
-    });
-
     // Implement GH-style TODO lists
     [...document.getElementsByTagName('li')].forEach((el) => {
 	if(el.innerHTML.startsWith('[x] ')) {
