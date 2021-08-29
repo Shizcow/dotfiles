@@ -938,6 +938,7 @@ corresponding impatient page in the web browser.
 	  (mapconcat (lambda (x) (format "%02x" (/ x 256))) (color-values color) "")))
 
 (use-package simple-httpd
+  :after org
   :config
 (defservlet babel-format text/plain (path args)
   (setq inhibit-message nil)
@@ -945,7 +946,7 @@ corresponding impatient page in the web browser.
    (let ((data (cadr (assoc "data" args)))
 	 (lang (cadr (assoc "lang" args))))
      (let ((data (base64-decode-string
-		  (replace-regexp-in-string "~" "=" data))))
+		  (replace-regexp-in-string "~" "=" (replace-regexp-in-string " " "+" (format "%s" data))))))
        (with-temp-buffer
 	 (let ((tmpname (buffer-name)) (tmpfile (make-temp-file "babel-format")))
 	   (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
