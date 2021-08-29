@@ -910,10 +910,8 @@ window.onload = function(){
             return;
 	// get rid of &amp; and such
 	var div = document.createElement('div');
-	div.innerHTML = el.innerHTML.replace(/^\\s+|\\s+$/g, '').replaceAll('\\t', '    ');
+	div.innerHTML = el.innerHTML.replace(/^\\s+|\\s+$/g, '');
 	var decoded = div.firstChild.nodeValue;
-console.log(decoded);
-console.log(btoa(decoded));
 	// and talk to the webserver
 	fetch('http://localhost:%s/babel-format?lang='
 	      + el.className +'&data='
@@ -986,6 +984,7 @@ corresponding impatient page in the web browser.
 	   (with-temp-buffer
 	     (let ((tmpname (buffer-name)))
 	       (set-buffer buffer)
+	       (untabify (point-min) (point-max))
 	       (set-buffer (markdown tmpname)) ; the function markdown is in `markdown-mode.el'
 	       (buffer-string))))
    (current-buffer)))
