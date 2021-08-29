@@ -1,2 +1,0 @@
-[Mon May 17 10:03:45 2021]
-Quitting GIMPS.
