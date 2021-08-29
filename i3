@@ -5,32 +5,6 @@ new_window pixel 0
 
 # TODO: stop using i3
 
-# >>> Plasma Integration <<<
-
-# Try to kill the wallpaper set by Plasma (it takes up the entire workspace
-# and hides everythiing)
-exec --no-startup-id wmctrl -c Plasma
-for_window [title="Desktop — Plasma"] kill; floating enable; border none
-
-# Avoid tiling popups, dropdown windows from plasma
-for_window [class="plasmashell"] floating enable
-for_window [class="Plasma"] floating enable
-for_window [class="krunner"] floating enable
-for_window [class="Kmix"] floating enable
-for_window [class="Klipper"] floating enable
-for_window [class="Plasmoidviewer"] floating enable
-
-# >>> Window Rules <<<
-
-# >>> Avoid tiling for non-Plasma stuff <<<
-for_window [window_role="pop-up"] floating enable
-for_window [window_role="bubble"] floating enable
-for_window [window_role="task_dialog"] floating enable
-for_window [window_role="Preferences"] floating enable
-for_window [window_role="About"] floating enable 
-for_window [window_type="dialog"] floating enable
-for_window [window_type="menu"] floating enable
-
 # >>> Wallpaper <<<
 exec_always --no-startup-id "sleep 2; ~/.fehbg" # give desktop time to init before calling feh
 
@@ -158,7 +132,7 @@ bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 
 bar {
-    font pango:DejaVu Sans Mono, FontAwesome 9
+    font pango:DejaVu Sans Mono, FontAwesome 20
     status_command i3status-rs ~/.config/i3status-rs/config.toml
     tray_output primary
     colors {
@@ -195,10 +169,10 @@ exec_always --no-startup-id flameshot
 bindsym Print exec flameshot gui
 
 # dmenu stuff - requires dmenu-rs (plugins: calc fuzzy lookup [spellcheck]) and j4-dmenu-desktop
-bindsym $mod+d exec --no-startup-id j4-dmenu-desktop --dmenu="dmenu -i --fn 'Office Code Pro-10' --render_minheight 53"
-bindsym $mod+equal exec --no-startup-id dmenu --calc --fn 'Office Code Pro-10' --render_minheight 53
-bindsym $mod+s exec --no-startup-id dmenu --lookup --list-engines | dmenu --fn 'Office Code Pro-10' --render_minheight 53 | dmenu --lookup --fn 'Office Code Pro-10' --render_minheight 53
-bindsym $mod+minus exec --no-startup-id dmenu --spellcheck --fn 'Office Code Pro-10' --render_minheight 53 # currently dead ree
+bindsym $mod+d exec --no-startup-id j4-dmenu-desktop --dmenu="dmenu -i --fn 'Office Code Pro-14' --render_minheight 44"
+bindsym $mod+equal exec --no-startup-id dmenu --calc --fn 'Office Code Pro-10' --render_minheight 44
+bindsym $mod+s exec --no-startup-id dmenu --lookup --list-engines | dmenu --fn 'Office Code Pro-14' --render_minheight 44 | dmenu --lookup --fn 'Office Code Pro-10' --render_minheight 44
+bindsym $mod+minus exec --no-startup-id dmenu --spellcheck --fn 'Office Code Pro-10' --render_minheight 44 # currently dead ree
 
 
 # notification daemon
@@ -213,6 +187,3 @@ exec_always --no-startup-id echo 2147483647 > ~/.config/i3status-rs/.counter # t
 for_window [title="Microsoft Teams Notification"] floating enable
 # neither is zoom (these are just the notifications)
 for_window [title="zoom"] floating enable
-
-# TODO: I need a better way of doing this
-exec_always setxkbmap -option ctrl:swapcaps

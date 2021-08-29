@@ -1,4 +1,4 @@
-#+title: Emacs Configuration
+1#+title: Emacs Configuration
 #+author: Devin Pohl
 #+STARTUP: content
 
@@ -11,8 +11,8 @@ To load this configuration into a running Emacs instance (optionally started as 
 (when (or ; give babel space to compile if required
        (not (boundp 'minibuffer-selected-window))
        (eq (buffer-file-name
-	    (window-buffer (minibuffer-selected-window)))
-	   nil)) ; give babel a place to tangle
+            (window-buffer (minibuffer-selected-window)))
+           nil)) ; give babel a place to tangle
   (write-file
    (concat temporary-file-directory "emacs_conf_tmpwrite.org")))
 (org-babel-load-file
@@ -40,7 +40,7 @@ The following snippet does just that; back up this configuration file, nuke the 
 
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (setq conf-backup-dir (file-name-as-directory
-		  (concat temporary-file-directory "emacs_conf_backup")))
+                  (concat temporary-file-directory "emacs_conf_backup")))
 (if (not (file-exists-p conf-backup-dir))
     (make-directory conf-backup-dir))
 (write-file (concat conf-backup-dir "conf.org"))
@@ -88,7 +88,7 @@ The easiest way to do so requires ~package.el~, a tool that /is/ built into Emac
 (require 'package)
 (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
                          ("melpa" . "https://melpa.org/packages/")
-			 ("org" . "http://orgmode.org/elpa/")))
+                         ("org" . "http://orgmode.org/elpa/")))
 (package-initialize)
 #+end_src
 
@@ -133,7 +133,7 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
   (use-package kooten-theme
   :config
   (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 60))
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 170))
 #+end_src
 
 #+RESULTS:
@@ -276,8 +276,8 @@ functions -c fish_prompt old_fish_prompt
 function fish_prompt
     old_fish_prompt
     switch $TERM
-	case xterm-256color # only in vterm
-	    vterm_cmd vterm-set-idle %self
+        case xterm-256color # only in vterm
+            vterm_cmd vterm-set-idle %self
     end
 end
 #+end_src
@@ -326,18 +326,18 @@ function fish_title
     set HOSTNAME (hostname)
 
     if test "$HOSTNAME" = "shizcow"
-	# on local machine
-	if test "$USERNAME" != "notroot"
-	    # worth printing
-	    echo "$USERNAME:"
-	end
+        # on local machine
+        if test "$USERNAME" != "notroot"
+            # worth printing
+            echo "$USERNAME:"
+        end
     else
-	# ssh
-	echo "$USERNAME@$HOSTNAME:"
+        # ssh
+        echo "$USERNAME@$HOSTNAME:"
     end
     
     if test (dirs | head -n1) != "/"
-	dirs | head -n1 | tr -d '\n'
+        dirs | head -n1 | tr -d '\n'
     end
     echo "/"
 end
@@ -379,11 +379,11 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
 (setq org-latex-pdf-process
       ; Always need a first pass
       '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
-	    ; bibtex needs some help getting started, so if there is no bibtex file, gen
+            ; bibtex needs some help getting started, so if there is no bibtex file, gen
         ; once generated (second+ pass), could be empty. If they're empty, no need to run:
         "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b; fi'"
         ; A few things (reference spawning/table of contents/figures/etc) change intermediary files
-	    ; This requires a re-run or two
+            ; This requires a re-run or two
         "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'"))
 #+end_src
 
@@ -406,11 +406,11 @@ I have yet to understand the vast majority of this:
   (org-latex-listings 'minted)
   (org-latex-minted-options '(("frame" "lines") ("linenos=true")))
   (org-latex-packages-alist '(("" "minted")))
-  (org-html-doctype "html5")	; default to HTML5 output
-  (org-html-html5-fancy t)		; enable fancy new tags
-  (org-html-postamble nil)		; disable the postamble
+  (org-html-doctype "html5")    ; default to HTML5 output
+  (org-html-html5-fancy t)              ; enable fancy new tags
+  (org-html-postamble nil)              ; disable the postamble
   (org-html-postamble-format '(("en" "<hr></hr><p class=\"author\">Author: %a</p><p class=\"date\">Date: %d</p>")))
-  (org-html-preamble nil)		; disable the preamble
+  (org-html-preamble nil)               ; disable the preamble
   (org-html-metadata-timestamp-format "%u, %B %e, %Y")
   (org-preview-latex-process-alist
    (quote
@@ -458,7 +458,7 @@ I have yet to understand the vast majority of this:
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")
                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-		 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
   (add-to-list 'org-latex-classes
                '("manual"
                  "\\documentclass{memoir}
@@ -584,7 +584,7 @@ I use =M-x count-words= a lot, so have dedicated a keybinding:
 #+end_src
 
 Other stuff
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :results silent
 
 (use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
 
@@ -598,13 +598,102 @@ Other stuff
 
 #+end_src
 
-#+RESULTS:
-
-What I do understand is I need Matlab in org-mode:
 #+begin_src emacs-lisp :results silent
 (org-babel-do-load-languages
  'org-babel-load-languages
  '((matlab . t) (python . t)))
+#+end_src
+** Latex Previews
+The default behavior of in-buffer latex previews leaves a lot left to be desired.
+First off, previews do not scale with the surrounding text. Second off, you can't
+get good live previews. The solution, in two parts is as follows: change the
+scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-latex-impatient]].
+
+#+begin_src elisp :results silent
+(defun update-org-latex-fragment-scale ()
+  (let ((text-scale-factor (expt text-scale-mode-step text-scale-mode-amount)))
+    (plist-put org-format-latex-options :scale (* 1.7 text-scale-factor))
+    (setq org-latex-impatient-scale (* 2.6 text-scale-factor))
+    (org-latex-preview '(16)))
+)
+(add-hook 'text-scale-mode-hook 'update-org-latex-fragment-scale)
+(add-hook 'org-mode-hook 'update-org-latex-fragment-scale)
+
+;; Posframe needs to be manually configured
+;; If not done, it will move the mouse to a different part of the screen
+;; which is super annoying and doesn't fix anything on my wm
+(use-package posframe
+  :init
+  (setq posframe-mouse-banish nil))
+
+(use-package org-latex-impatient
+  :after posframe
+  :after org
+  :hook (org-mode . org-latex-impatient-mode)
+  :init
+  (setq org-latex-impatient-tex2svg-bin
+        ;; location of tex2svg executable
+        "~/node_modules/mathjax-node-cli/bin/tex2svg")
+  (setq org-latex-impatient-border-color "white")
+  (setq org-latex-impatient-user-latex-definitions
+        ;; MathJax sucks and I really like using siunitx
+        ;; Luckily, I can live with the most basic features
+        ;; While the below is far from perfect, it is good
+        ;; enough for a quick preview. C-c C-x l will give
+        ;; a more acurate preview
+        '("\\newcommand{\\ensuremath}[1]{#1}" 
+          "\\newcommand{\\usepackage}[1]{}"
+          "\\newcommand{\\yocto}{\\text{y}}"
+          "\\newcommand{\\zepto}{\\text{z}}"
+          "\\newcommand{\\atto}{\\text{a}}"
+          "\\newcommand{\\femto}{\\text{f}}"
+          "\\newcommand{\\pico}{\\text{p}}"
+          "\\newcommand{\\nano}{\\text{n}}"
+          "\\newcommand{\\micro}{\\mu}"
+          "\\newcommand{\\milli}{\\text{m}}"
+          "\\newcommand{\\centi}{\\text{c}}"
+          "\\newcommand{\\deci}{\\text{d}}"
+          "\\newcommand{\\deca}{\\text{da}}"
+          "\\newcommand{\\hecto}{\\text{h}}"
+          "\\newcommand{\\kilo}{\\text{k}}"
+          "\\newcommand{\\mega}{\\text{M}}"
+          "\\newcommand{\\giga}{\\text{G}}"
+          "\\newcommand{\\tera}{\\text{T}}"
+          "\\newcommand{\\peta}{\\text{P}}"
+          "\\newcommand{\\exa}{\\text{E}}"
+          "\\newcommand{\\zetta}{\\text{Z}}"
+          "\\newcommand{\\yotta}{\\text{Y}}"
+          "\\newcommand{\\ampere}{\\text{A}}"
+          "\\newcommand{\\candela}{\\text{cd}}"
+          "\\newcommand{\\kelvin}{\\text{K}}"
+          "\\newcommand{\\kilogram}{\\text{kg}}"
+          "\\newcommand{\\gram}{\\text{g}}"
+          "\\newcommand{\\metre}{\\text{m}}"
+          "\\newcommand{\\mole}{\\text{mol}}"
+          "\\newcommand{\\second}{\\text{s}}"
+          "\\newcommand{\\becqerel}{Bq}"
+          "\\newcommand{\\degreeCelsius}{^\\circ\\text{C}}"
+          "\\newcommand{\\columb}{\\text{C}}"
+          "\\newcommand{\\farad}{\\text{F}}"
+          "\\newcommand{\\gray}{\\text{Gy}}"
+          "\\newcommand{\\hertz}{\\text{Hz}}"
+          "\\newcommand{\\henry}{\\text{H}}"
+          "\\newcommand{\\joule}{\\text{J}}"
+          "\\newcommand{\\lumen}{\\text{lm}}"
+          "\\newcommand{\\katal}{\\text{kat}}"
+          "\\newcommand{\\lux}{\\text{lx}}"
+          "\\newcommand{\\newton}{\\text{N}}"
+          "\\newcommand{\\ohm}{\\Omega}"
+          "\\newcommand{\\pascal}{\\text{Pa}}"
+          "\\newcommand{\\radian}{\\text{rad}}"
+          "\\newcommand{\\siemens}{\\text{S}}"
+          "\\newcommand{\\sievert}{\\text{Sv}}"
+          "\\newcommand{\\steradian}{\\text{sr}}"
+          "\\newcommand{\\tesla}{\\text{T}}"
+          "\\newcommand{\\volt}{\\text{V}}"
+          "\\newcommand{\\watt}{\\text{W}}"
+          "\\newcommand{\\weber}{\\text{Wb}}"
+          "\\newcommand{\\SI}[2]{#1\\hspace{0.5ex}#2}")))
 #+end_src
 ** Org-Ref
 #+begin_src emacs-lisp :results silent
@@ -612,19 +701,19 @@ What I do understand is I need Matlab in org-mode:
   :after org
   :init
   (setq org-ref-bibliography-notes "~/Documents/org-ref/notes.org"
-	org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
-	org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
+        org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
+        org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
 
   (unless (file-exists-p org-ref-pdf-directory)
     (make-directory org-ref-pdf-directory t))
 
   (setq bibtex-autokey-year-length 4
-	bibtex-autokey-name-year-separator "-"
-	bibtex-autokey-year-title-separator "-"
-	bibtex-autokey-titleword-separator "-"
-	bibtex-autokey-titlewords 2
-	bibtex-autokey-titlewords-stretch 1
-	bibtex-autokey-titleword-length 5)
+        bibtex-autokey-name-year-separator "-"
+        bibtex-autokey-year-title-separator "-"
+        bibtex-autokey-titleword-separator "-"
+        bibtex-autokey-titlewords 2
+        bibtex-autokey-titlewords-stretch 1
+        bibtex-autokey-titleword-length 5)
   (require 'org-ref)
   (require 'org-ref-pdf)
   (require 'org-ref-url-utils)
@@ -690,7 +779,9 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
     (setq tab-width 2))
   :config
   (add-hook 'go-mode-hook 'go-setup))
-(use-package markdown-mode)
+(use-package markdown-mode
+  :config
+  (setq markdown-command "multimarkdown"))
 (use-package matlab
   :ensure matlab-mode
   :config
@@ -728,6 +819,184 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
   (setq verilog-auto-newline nil))
 #+end_src
 
+** Magit
+#+begin_src elisp :results silent
+(use-package magit)
+#+end_src
+
+** Impatient
+#+name: impatient-styles
+#+begin_src css
+body {background-color: %s;}
+p,li,pre,table {color: %s;}
+h1   {color: %s;}
+h2   {color: %s;}
+h3   {color: %s;}
+h4   {color: %s;}
+h5   {color: %s;}
+h6   {color: %s;}
+a    {color: %s;}
+code {color: %s;font-family: %s;font-size: 120%%;}
+blockquote {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 50px;
+    padding-left: 15px;
+    border-left: 3px solid %s;
+}
+pre {
+    margin: 0;
+}
+.task-list-item-checkbox {
+    margin: 0 0.75em .25em -1.6em;
+    vertical-align: middle;
+}
+td, th {
+  border: 1px solid %s;
+  padding: 8px;
+}
+
+th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: %s;
+  color: %s;
+}
+#+end_src
+#+name: impatient-script
+#+begin_src js
+window.onload = function(){
+    // Fix strikethrough
+    [...document.getElementsByTagName('sub')].forEach((el) => {
+	if(el.children.length == 1 && el.children[0].tagName == 'SUB') {
+	    el.outerHTML = '<strike>' + el.children[0].innerHTML + '</strike>';
+	}
+    });
+
+    // Implement GH-style TODO lists
+    [...document.getElementsByTagName('li')].forEach((el) => {
+	if(el.innerHTML.startsWith('[x] ')) {
+	    el.innerHTML = el.innerHTML.replace('[x] ', '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\" checked=\"\">');
+	    el.style.listStyleType = 'none';
+	} else if(el.innerHTML.startsWith('[ ] ')) {
+	    el.innerHTML = el.innerHTML.replace('[ ] ', '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\">');
+	    el.style.listStyleType = 'none';
+	}
+    });
+
+    // Syntax highlight code blocks
+    [...document.getElementsByTagName('code')].forEach((el) => {
+	if(!el.className)
+            return;
+	fetch('http://localhost:8069/babel-format?lang='
+	      + el.className +'&data='
+	      + btoa(el.innerHTML.replace(/^\\s+|\\s+$/g, '').replaceAll('\\t', '    ')).replaceAll('=', '~'))
+	    .then(response => response.text())
+	    .then(text => {
+		el.innerHTML = text.replace('\\n', '').split('\\n').reverse().join('\\n').replace('\\n', '').replace('\\n', '').split('\\n').reverse().join('\\n');
+	    });
+    });
+}
+#+end_src
+#+begin_src elisp :results silent :noweb no-export
+(defun color-to-css (color)
+  (format "#%s"
+	  (mapconcat (lambda (x) (format "%02x" (/ x 256))) (color-values color) "")))
+(defservlet babel-format text/plain (path args)
+  (setq inhibit-message nil)
+  (insert
+   (let ((data (cadr (assoc "data" args)))
+	 (lang (cadr (assoc "lang" args))))
+     (let ((data (base64-decode-string
+		  (replace-regexp-in-string "~" "=" data))))
+       (with-temp-buffer
+	 (let ((tmpname (buffer-name)) (tmpfile (make-temp-file "babel-format")))
+	   (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
+	   (setq inhibit-message t)
+	   (org-export-to-file 'html tmpfile
+	     nil nil nil t nil
+	     )
+	   (setq inhibit-message nil)
+	   (let ((ret (get-string-from-file tmpfile)))
+	     (delete-file tmpfile)
+	     ret
+	     ))))))
+  )
+
+(defun markdown-html (buffer)
+  (princ
+   (concat (format "<head><style>
+<<impatient-styles>>
+</style><script>
+<<impatient-script>>
+</script></head>\n"
+		   (color-to-css (face-attribute 'default                   :background nil t))
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-1    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-2    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-3    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-4    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-5    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-6    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-link-face        :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-inline-code-face :foreground nil t))
+		   (face-attribute 'markdown-inline-code-face :family nil t)
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'region                    :background nil t))
+		   (color-to-css (face-attribute 'region                    :foreground nil t))
+		   )
+	   (with-temp-buffer
+	     (let ((tmpname (buffer-name)))
+	       (set-buffer buffer)
+	       (set-buffer (markdown tmpname)) ; the function markdown is in `markdown-mode.el'
+	       (buffer-string))))
+   (current-buffer)))
+
+(use-package impatient-mode
+  :after markdown-mode
+  :config
+  (defun markdown-preview (&optional output-buffer-name)
+    "Run `markdown-command' on the current buffer and view output in browser.
+When OUTPUT-BUFFER-NAME is given, insert the output in the buffer with
+that name."
+    (interactive)
+    (setq httpd-port 8069)
+    (httpd-start)
+    (impatient-mode 1)
+    (imp-set-user-filter 'markdown-html)
+    (cl-incf imp-last-state)
+    
+    (start-process "" nil "xdg-open" (concat "http://localhost:8069/imp/live/" (buffer-name))))
+  )
+#+end_src
+* Circuits
+As an electrical engineer and electronics hobbyist, I find the need to model circuits often. =tikz= works well, but does not provide simulation results. LTspice works well, but it's (1) ancient technology and (2) not Emacs. Solution: throw everything into org-mode.
+
+
+#+begin_src emacs-lisp :results silent
+(use-package spice-mode
+  :config
+  ;; spice-mode does not automatically do file-extensions
+  (add-to-list 'auto-mode-alist '("\\.cir$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.ckt$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.inp$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.spout$"        . spice-mode));hspice out
+  (add-to-list 'auto-mode-alist '("\\.pdir$"         . spice-mode))
+ ;;; Intel formats
+  (add-to-list 'auto-mode-alist '("\\.[sS][pP]$"     . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.[sm]?t0$"      . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.[h]?spice$"    . spice-mode))
+
+  (add-to-list 'load-path "~/.emacs.d/spice/")
+  (require 'ob-spice)
+
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((spice . t)))
+  )
+#+end_src
 * Utility functions
 ** Revert All Buffers
 #+begin_src emacs-lisp
@@ -737,7 +1006,7 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
   (dolist (buf (buffer-list))
     (with-current-buffer buf
       (when (and (buffer-file-name) (file-exists-p (buffer-file-name)) (not (buffer-modified-p)))
-	(revert-buffer t t t) )))
+        (revert-buffer t t t) )))
   (message "Refreshed open files."))
 #+end_src
 * Miscellaneous

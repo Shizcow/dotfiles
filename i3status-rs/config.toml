@@ -1,26 +1,19 @@
 theme = "slick"
 icons = "awesome"
 
-# Ask Thunderbird for the number of unread emails
-# Prints as #/#/# for each account on the system
 [[block]]
 block = "custom"
-command = "printf '\\uf0e0 '; find ~/.thunderbird/p737rdci.default-release/ImapMail/ -name 'INBOX*.msf' -print0 | xargs -0 -I {} sh -c 'grep -ahPo \\'(?<=\\\\(\\\\^A2=)[0-9](?=\\\\))\\' {} | tail -n1' | paste -sd/"
+command = "printf '\\uf1b2 '; and bedrock_count"
 interval = 1
-
-[[block]]
-block = "custom"
-command = "bash /home/notroot/.config/i3status-rs/pacman_update.sh"
-on_click = "screen -dm bash -c 'urxvt -e fish -c \"sysup --noconfirm\"'" # open up a terminal starting a full system upgrade
-interval = 2
-
-[[block]]
-block = "sound"
 
 [[block]]
 block = "cpu"
 interval = 2
 format = "{barchart} {utilization}"
+
+[[block]]
+block = "temperature"
+collapsed = false
 
 [[block]]
 block = "memory"
@@ -40,12 +33,7 @@ warning = 90
 
 [[block]]
 block = "custom"
-command = "printf '\\uf2ea '; and if ifconfig enp4s0 | grep 'inet ' &> /dev/null; ifconfig enp4s0 | grep 'inet ' | awk '{if(length($2)==0){printf\"\"}else{print $2}}'; else; printf ''; end"
-interval = 2
-
-[[block]]
-block = "custom"
-command = "printf ' '; and if ifconfig wlp5s0 | grep 'inet ' &> /dev/null; ifconfig wlp5s0 | grep 'inet ' | awk '{print $2}'; else; printf ''; end"
+command = "printf '\\uf074 '; and if ifconfig br0 | grep 'inet ' &> /dev/null; ifconfig br0 | grep 'inet ' | awk '{if(length($2)==0){printf\"\"}else{print $2}}'; else; printf ''; end"
 interval = 2
 
 # TODO: reintroduce status indicator for no connection
@@ -53,14 +41,6 @@ interval = 2
 block = "custom"
 command = "printf ' '; curl ipinfo.io/ip"
 interval = 5
-
-# TODO: make this machine dependent with dotter
-[[block]]
-block = "battery"
-interval = 5
-driver = "sysfs"
-device = "BAT0"
-format = "{percentage} {time}"
 
 [[block]]
 block = "custom"

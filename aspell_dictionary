@@ -1,4 +1,4 @@
-personal_ws-1.1 en 76 
+personal_ws-1.1 en 85 
 APA
 Accelerometer
 Alexa's
@@ -23,12 +23,16 @@ Jameson
 Kori
 LaTeX
 MOSFET
+Microcontroller
+Microcontrollers
 Microsystems
 Nikola
 OEMs
 Olivera
 POSIX
 Pavlik
+Pentode
+Pentodes
 PiHoles
 Pohl
 Raspbian
@@ -38,6 +42,7 @@ Systemd
 TDP
 TIVA
 TODO
+Thevenin
 Vterm
 accuracies
 benchmarking
@@ -52,6 +57,7 @@ ideation
 ideations
 impactful
 impactfully
+inductor
 interleavings
 intersectional
 latencies
@@ -63,11 +69,14 @@ multicore
 mutex
 nops
 overrider
+pentode
+phasor
 pipelined
 pipelining
 procedurally
 recency
 reproducibility
+resistive
 runtimes
 subteam
 systemd

@@ -2,12 +2,25 @@
 # If a package is not specified here, assume always update
 # Packeges here require an extra pacaur call if appropriate, so query lightly
 
+# update_on options are "always", "major", "minor", "patch", "never", and empty/unmarked (default, never update)
+
 [ungoogled-chromium] # specify a package name
-# options are "always", "major", "minor", "patch", "never", and empty/unmarked (default, never update)
 update_on = "never"
 
-[pulseaudio]
+# I maintain these and know what's broken on my machine :)
+[linux-x570-vfio-openrgb-sm2262+sm2263]
+update_on = "never"
+[linux-x570-vfio-openrgb-sm2262+sm2263-docs]
+update_on = "never"
+[linux-x570-vfio-openrgb-sm2262+sm2263-headers]
 update_on = "never"
 
-[libpulse]
+# Stable doesn't work and this would also require a change in VM so sticking with what's stable
+[looking-glass-git]
+update_on = "never"
+[looking-glass-host-git]
+update_on = "never"
+[looking-glass-module-dkms-git]
+update_on = "never"
+[obs-plugin-looking-glass-git]
 update_on = "never"
