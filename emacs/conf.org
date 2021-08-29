@@ -855,7 +855,7 @@ pre {
     margin: 0;
 }
 .task-list-item-checkbox {
-    margin: 0 0.75em .25em -1.6em;
+    margin: 0 0.75em .25em 0em;
     vertical-align: middle;
 }
 td, th {
@@ -868,6 +868,9 @@ th {
   text-align: left;
   background-color: %s;
   color: %s;
+}
+ul {
+    padding-left: 1.4em;
 }
 sub {
     font-size: 100%%;
@@ -889,7 +892,7 @@ send that to Emacs, and replace in the result. This script simply connects
 to [[https://github.com/skeeto/emacs-web-server/blob/master/simple-httpd.el][httpd]]; the actual setup and processing is in the [[impatient-markdown-hooks][next block]].
 #+name: impatient-script
 #+begin_src js
-window.onload = function(){
+document.addEventListener('DOMContentLoaded', function(){
     // Implement GH-style TODO lists
     [...document.getElementsByTagName('li')].reverse().forEach((el) => {
 	if(el.innerHTML.match(/^ ?\\[x\\] /)) {
@@ -918,7 +921,7 @@ window.onload = function(){
 		el.innerHTML = text.replace('\\n', '').split('\\n').reverse().join('\\n').replace('\\n', '').replace('\\n', '').split('\\n').reverse().join('\\n');
 	    });
     });
-}
+});
 #+end_src
 
 Gluing this all together is a bit of elisp, which serves the org-mode powered
