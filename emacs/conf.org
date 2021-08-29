@@ -891,12 +891,12 @@ to [[https://github.com/skeeto/emacs-web-server/blob/master/simple-httpd.el][htt
 #+begin_src js
 window.onload = function(){
     // Implement GH-style TODO lists
-    [...document.getElementsByTagName('li')].forEach((el) => {
-	if(el.innerHTML.startsWith('[x] ')) {
-	    el.innerHTML = el.innerHTML.replace('[x] ', '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\" checked=\"\">');
+    [...document.getElementsByTagName('li')].reverse().forEach((el) => {
+	if(el.innerHTML.match(/^ ?\\[x\\] /)) {
+	    el.innerHTML = el.innerHTML.replace(/^ ?\\[x\\] /, '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\" checked=\"\">');
 	    el.style.listStyleType = 'none';
-	} else if(el.innerHTML.startsWith('[ ] ')) {
-	    el.innerHTML = el.innerHTML.replace('[ ] ', '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\">');
+	} else if(el.innerHTML.match(/^ ?\\[ \\] /)) {
+	    el.innerHTML = el.innerHTML.replace(/^ ?\\[ \\] /, '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\">');
 	    el.style.listStyleType = 'none';
 	}
     });
