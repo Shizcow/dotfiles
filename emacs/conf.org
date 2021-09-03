@@ -825,15 +825,18 @@ TODO: document better. Short version is that this makes some branches restricted
 #+begin_src elisp :results silent
 (use-package magit
   :config
+  (setq magit-restricted-git-config-tag "magit.restricted-branches")
+  (setq magit-default-restricted-branches '("main" "master"))
+
   (defun magit-get-restricted-branches ()
-    (sort (split-string (magit-git-string "config" "magit.restricted-branches") " ")
+    (sort (split-string (magit-git-string "config" magit-restricted-git-config-tag) " ")
 	  (lambda (a b) 'string<)))
 
   (defun magit-restricted-branch-setup ()
     (setq magit-git-debug-old magit-git-debug)
     (setq magit-git-debug t)
-    (when (not (magit-git-success "config" "magit.restricted-branches"))
-      (magit-call-git "config" "magit.restricted-branches" "main master"))
+    (when (not (magit-git-success "config" magit-restricted-git-config-tag))
+      (magit-call-git "config" magit-restricted-git-config-tag (string-join magit-default-restricted-branches " ")))
     (setq magit-git-debug magit-git-debug-old))
   (advice-add 'magit-dispatch :before #'magit-restricted-branch-setup)
 
@@ -874,7 +877,7 @@ TODO: document better. Short version is that this makes some branches restricted
     (let ((restricted-branches (magit-get-restricted-branches))
 	  (target-branch (magit-read-branch "Branch to restrict")))
       (if (not (member target-branch restricted-branches))
-	  (magit-call-git "config" "magit.restricted-branches"
+	  (magit-call-git "config" magit-restricted-git-config-tag
 			  (format "%s %s" (string-join restricted-branches " ") target-branch)))))
 
   (defun magit-restricted-remove ()
@@ -883,7 +886,7 @@ TODO: document better. Short version is that this makes some branches restricted
 	   (current-branch (magit-get-current-branch))
 	   (target-branch (magit-completing-read "Branch to derestrict" restricted-branches
 						 nil t nil nil (when (member current-branch restricted-branches) current-branch))))
-      (magit-call-git "config" "magit.restricted-branches"
+      (magit-call-git "config" magit-restricted-git-config-tag
 		      (format "%s" (string-join (remove target-branch restricted-branches) " ")))))
 
   (transient-define-prefix magit-restricted ()
