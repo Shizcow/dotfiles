@@ -899,7 +899,10 @@ TODO: document better. Short version is that this makes some branches restricted
     (transient-setup 'magit-restricted))
 
   (transient-append-suffix 'magit-dispatch "!"
-    '("=" "Restrict" magit-restricted)))
+    '("=" "Restrict" magit-restricted))
+  
+  :bind
+  (:map magit-mode-map ("=" . magit-restricted)))
 #+end_src
 
 ** Impatient
