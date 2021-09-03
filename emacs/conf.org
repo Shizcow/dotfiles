@@ -1,4 +1,4 @@
-1#+title: Emacs Configuration
+#+title: Emacs Configuration
 #+author: Devin Pohl
 #+STARTUP: content
 
