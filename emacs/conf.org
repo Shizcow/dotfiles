@@ -40,7 +40,7 @@ The following snippet does just that; back up this configuration file, nuke the 
 
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (setq conf-backup-dir (file-name-as-directory
-                  (concat temporary-file-directory "emacs_conf_backup")))
+                       (concat temporary-file-directory "emacs_conf_backup")))
 (if (not (file-exists-p conf-backup-dir))
     (make-directory conf-backup-dir))
 (write-file (concat conf-backup-dir "conf.org"))
@@ -118,19 +118,19 @@ The following is used to get ~:ensure-system-package~ from ~use-package~:
 ** Default Display Settings
 Simple settings to get rid of things I dislike.
 #+begin_src emacs-lisp
-  (setq inhibit-startup-screen t)
-  (setq initial-scratch-message "")
-  (menu-bar-mode -1)
-  (scroll-bar-mode -1)
-  (tool-bar-mode -1)
-  (global-visual-line-mode 1)
+(setq inhibit-startup-screen t)
+(setq initial-scratch-message "")
+(menu-bar-mode -1)
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+(global-visual-line-mode 1)
 #+end_src
 ** Theme and Font
 [[https://github.com/kootenpv/emacs-kooten-theme][Kooten]] is a dark Emacs theme with mild colors but high contrast between those colors. It is also red-green colorblind friendly, something I greatly appreciate for self-evident reasons. This addition places it further up on my preference list than other popular dark themes.
 
 My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pro]]. I just happen to like it.
 #+begin_src emacs-lisp
-  (use-package kooten-theme
+(use-package kooten-theme
   :config
   (load-theme 'kooten t)
   (set-face-attribute 'default nil :family "Office Code Pro" :height 170))
@@ -142,9 +142,9 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
 ** Rainbow Delimiters
 If you haven't heard of [[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimeters]] I *highly* recommend it. Currently the below turns it on for all programming modes; I have yet to have this cause any problems.
 #+begin_src emacs-lisp
-  (use-package rainbow-delimiters
-    :config
-    (add-hook 'prog-mode-hook 'rainbow-delimiters-mode))
+(use-package rainbow-delimiters
+  :config
+  (add-hook 'prog-mode-hook 'rainbow-delimiters-mode))
 #+end_src
 ** Modeline
 Nothing much to see here.
@@ -230,18 +230,18 @@ I find this keybinding often useful when setting up several similar lines and no
 ** Revert Buffer
 I use this one somewhat frequently, usually as a workaround for not finishing configuration of other things.
 #+begin_src emacs-lisp
-  (defun revert-buffer-smart ()
-    (if (or (not (buffer-modified-p))
-            (yes-or-no-p (format "Buffer '%s' changed on disk. Really revert?" (buffer-name))))
-        (revert-buffer :ignore-auto :noconfirm)
-      (message "Buffer left unchanged"))) 
+(defun revert-buffer-smart ()
+  (if (or (not (buffer-modified-p))
+          (yes-or-no-p (format "Buffer '%s' changed on disk. Really revert?" (buffer-name))))
+      (revert-buffer :ignore-auto :noconfirm)
+    (message "Buffer left unchanged"))) 
 
-  (global-set-key
-   (kbd "C-c r b")
-   (lambda (&optional title)
-     "Revert buffer, only stopping to confirm if the buffer has been edited."
-     (interactive "P")
-     (revert-buffer-smart)))
+(global-set-key
+ (kbd "C-c r b")
+ (lambda (&optional title)
+   "Revert buffer, only stopping to confirm if the buffer has been edited."
+   (interactive "P")
+   (revert-buffer-smart)))
 #+end_src
 
 * Vterm
@@ -251,12 +251,12 @@ Normally, whenever emacs kills a vterm buffer, it alerts the user of a running p
 This can be done with some shell-side configuration. First, the following elisp functions are defined, later to be exposed to vterm. Because vterm can call exported elisp functions, these will allow shell to indicate whether or not a command is in progress:
 #+begin_src emacs-lisp
 (defun vterm-set-active (shell-pid)
-"Tells emacs that the shell attached to a vterm instance is working and should not be killed"
-(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) t))
+  "Tells emacs that the shell attached to a vterm instance is working and should not be killed"
+  (set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) t))
 
 (defun vterm-set-idle (shell-pid)
-"Tells emacs that the shell attached to a vterm instance is idle, and can safely be killed"
-(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) nil))
+  "Tells emacs that the shell attached to a vterm instance is idle, and can safely be killed"
+  (set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) nil))
 #+end_src
 
 My preferred shell is fish. The configuration required is in two parts. The first sets the vterm host buffer as active right before every command is executed:
@@ -348,7 +348,7 @@ I may eventually post a link to my full ~config.fish~ here.
 ** Final Configuration
 There are the final configurations done to vterm. They mostly just pass through some additional keybindings and expose the previously defined idle-switching functions:
 #+begin_src emacs-lisp
-  (use-package vterm
+(use-package vterm
   :ensure-system-package fish
   :init
   (setq vterm-shell "fish")
@@ -377,13 +377,13 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
 
 #+begin_src emacs-lisp :results silent
 (setq org-latex-pdf-process
-      ; Always need a first pass
+					; Always need a first pass
       '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
-            ; bibtex needs some help getting started, so if there is no bibtex file, gen
-        ; once generated (second+ pass), could be empty. If they're empty, no need to run:
+					; bibtex needs some help getting started, so if there is no bibtex file, gen
+					; once generated (second+ pass), could be empty. If they're empty, no need to run:
         "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b; fi'"
-        ; A few things (reference spawning/table of contents/figures/etc) change intermediary files
-            ; This requires a re-run or two
+					; A few things (reference spawning/table of contents/figures/etc) change intermediary files
+					; This requires a re-run or two
         "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'"))
 #+end_src
 
@@ -615,7 +615,7 @@ scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-l
     (plist-put org-format-latex-options :scale (* 1.7 text-scale-factor))
     (setq org-latex-impatient-scale (* 2.6 text-scale-factor))
     (org-latex-preview '(16)))
-)
+  )
 (add-hook 'text-scale-mode-hook 'update-org-latex-fragment-scale)
 (add-hook 'org-mode-hook 'update-org-latex-fragment-scale)
 
@@ -727,13 +727,13 @@ Emacs's default behavior clutters the filesystem a lot. These configurations aim
 ** Backups
 Taken from the [[https://www.emacswiki.org/emacs/BackupDirectory][Emacs Wiki]]. Note this does AutoSaves as well as backup files.
 #+begin_src emacs-lisp
-  (setq backup-by-copying t
-  backup-directory-alist
-  `(("." . ,(concat user-emacs-directory "backups")))
-  delete-old-versions t
-  kept-new-versions 6
-  kept-old-versions 2
-  version-control t)
+(setq backup-by-copying t
+      backup-directory-alist
+      `(("." . ,(concat user-emacs-directory "backups")))
+      delete-old-versions t
+      kept-new-versions 6
+      kept-old-versions 2
+      version-control t)
 #+end_src
 
 ** Lockfiles
@@ -747,24 +747,24 @@ These tend to screw with poorly put together build systems so I just disable the
 Flycheck is a better alternative to the legacy flymake.
 Also, it's a soft dependency of lsp.
 #+begin_src emacs-lisp :results silent
-  (use-package flycheck
-    :after exec-path-from-shell)
+(use-package flycheck
+  :after exec-path-from-shell)
 #+end_src
 ** LSP
 I dislike __most__ of LSP's functionality. It's too distracting when my buffers get resized and my text moved around. This disables it, while keeping what I consider to be the good features. There will be much more configuration in the future.
 #+begin_src emacs-lisp :results silent
-  (use-package lsp-mode
-    :after flycheck
-    :init
-    (setq lsp-signature-render-documentation nil))
-  (use-package lsp-ui
-    :after lsp-mode
-    :init
-    (setq lsp-ui-doc-enable nil)
-    (setq lsp-ui-peek-enable nil)
-    (setq lsp-ui-sideline-show-hover nil)
-    (setq lsp-ui-sideline-show-code-actions nil)
-    (setq lsp-ui-sideline-show-diagnostics nil))
+(use-package lsp-mode
+  :after flycheck
+  :init
+  (setq lsp-signature-render-documentation nil))
+(use-package lsp-ui
+  :after lsp-mode
+  :init
+  (setq lsp-ui-doc-enable nil)
+  (setq lsp-ui-peek-enable nil)
+  (setq lsp-ui-sideline-show-hover nil)
+  (setq lsp-ui-sideline-show-code-actions nil)
+  (setq lsp-ui-sideline-show-diagnostics nil))
 #+end_src
 ** Languages
 #+begin_src emacs-lisp :results silent
@@ -781,7 +781,8 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
   (add-hook 'go-mode-hook 'go-setup))
 (use-package markdown-mode
   :config
-  (setq markdown-command "multimarkdown"))
+  (setq markdown-command "multimarkdown")
+  (add-hook 'markdown-mode-hook 'flyspell-mode))
 (use-package matlab
   :ensure matlab-mode
   :config
@@ -820,8 +821,82 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
 #+end_src
 
 ** Magit
+TODO: document better. Short version is that this makes some branches restricted so that you can't push or commit to them. Added onto that are a ton of creature comforts.
 #+begin_src elisp :results silent
-(use-package magit)
+(use-package magit
+  :config
+  (defun magit-get-restricted-branches ()
+    (sort (split-string (magit-git-string "config" "magit.restricted-branches") " ")
+	  (lambda (a b) 'string<)))
+
+  (defun magit-restricted-branch-setup ()
+    (setq magit-git-debug-old magit-git-debug)
+    (setq magit-git-debug t)
+    (when (not (magit-git-success "config" "magit.restricted-branches"))
+      (magit-call-git "config" "magit.restricted-branches" "main master"))
+    (setq magit-git-debug magit-git-debug-old))
+  (advice-add 'magit-dispatch :before #'magit-restricted-branch-setup)
+
+  (defun magit-branch-check ()
+    (member (magit-get-current-branch) (magit-get-restricted-branches)))
+
+  (defun magit-commit-branch-check (&optional args)
+    (magit-restricted-branch-setup)
+    (if (magit-branch-check)
+	(progn
+	  (magit-commit-assert args)
+	  (let ((new-branch
+		 (magit-read-string-ns
+		  (format "%s is a restricted branch! Commit changes to new branch"
+			  (magit-get-current-branch)))))
+	    (if (or (string= new-branch "main"))
+		(user-error "Error: Tried to commit arround a restricted branch!")
+	      (progn
+		(magit-stash-save "(auto) moving from restricted branch" t t nil t)
+		(magit-branch-and-checkout new-branch (magit-get-current-branch))
+		(magit-call-git "stash" "pop")
+		(magit-stage-modified)
+		))))))
+  (advice-add 'magit-commit-create :before #'magit-commit-branch-check)
+
+  (defun magit-push-branch-check (&optional args)
+    (magit-restricted-branch-setup)
+    (if (magit-branch-check)
+	(user-error (format "Error: Not allowed to push to %s! If commits are pending, you may need to checkout and cherry-pick." (magit-get-current-branch)))))
+  (advice-add 'magit-push-current-to-pushremote :before #'magit-push-branch-check)
+
+  (defun magit-restricted-view ()
+    (interactive)
+    (message "Restricted branches: %s" (string-join (magit-get-restricted-branches) " ")))
+
+  (defun magit-restricted-add ()
+    (interactive)
+    (let ((restricted-branches (magit-get-restricted-branches))
+	  (target-branch (magit-read-branch "Branch to restrict")))
+      (if (not (member target-branch restricted-branches))
+	  (magit-call-git "config" "magit.restricted-branches"
+			  (format "%s %s" (string-join restricted-branches " ") target-branch)))))
+
+  (defun magit-restricted-remove ()
+    (interactive)
+    (let* ((restricted-branches (magit-get-restricted-branches))
+	   (current-branch (magit-get-current-branch))
+	   (target-branch (magit-completing-read "Branch to derestrict" restricted-branches
+						 nil t nil nil (when (member current-branch restricted-branches) current-branch))))
+      (magit-call-git "config" "magit.restricted-branches"
+		      (format "%s" (string-join (remove target-branch restricted-branches) " ")))))
+
+  (transient-define-prefix magit-restricted ()
+    "View or modify restriction git attributes"
+    ["Branches"
+     ("v" "View Restrictions"     magit-restricted-view)
+     ("a" "Add a Restriction"    magit-restricted-add)
+     ("r" "Remove a Restriction" magit-restricted-remove)]
+    (interactive)
+    (transient-setup 'magit-restricted))
+
+  (transient-append-suffix 'magit-dispatch "!"
+    '("=" "Restrict" magit-restricted)))
 #+end_src
 
 ** Impatient
@@ -859,15 +934,15 @@ pre {
     vertical-align: middle;
 }
 td, th {
-  border: 1px solid %s;
-  padding: 8px;
+    border: 1px solid %s;
+    padding: 8px;
 }
 th {
-  padding-top: 12px;
-  padding-bottom: 12px;
-  text-align: left;
-  background-color: %s;
-  color: %s;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: %s;
+    color: %s;
 }
 ul {
     padding-left: 1.4em;
@@ -938,24 +1013,24 @@ corresponding impatient page in the web browser.
 (use-package simple-httpd
   :after org
   :config
-(defservlet babel-format text/plain (path args)
-  (setq inhibit-message nil)
-  (insert
-   (let ((data (cadr (assoc "data" args)))
-	 (lang (cadr (assoc "lang" args))))
-     (let ((data (base64-decode-string
-		  (replace-regexp-in-string "~" "=" (replace-regexp-in-string " " "+" (format "%s" data))))))
-       (with-temp-buffer
-	 (let ((tmpname (buffer-name)) (tmpfile (make-temp-file "babel-format")))
-	   (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
-	   (setq inhibit-message t)
-	   (org-export-to-file 'html tmpfile
-	     nil nil nil t nil)
-	   (setq inhibit-message nil)
-	   (let ((ret (get-string-from-file tmpfile)))
-	     (delete-file tmpfile)
-	     ret
-	     ))))))))
+  (defservlet babel-format text/plain (path args)
+    (setq inhibit-message nil)
+    (insert
+     (let ((data (cadr (assoc "data" args)))
+	   (lang (cadr (assoc "lang" args))))
+       (let ((data (base64-decode-string
+		    (replace-regexp-in-string "~" "=" (replace-regexp-in-string " " "+" (format "%s" data))))))
+	 (with-temp-buffer
+	   (let ((tmpname (buffer-name)) (tmpfile (make-temp-file "babel-format")))
+	     (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
+	     (setq inhibit-message t)
+	     (org-export-to-file 'html tmpfile
+	       nil nil nil t nil)
+	     (setq inhibit-message nil)
+	     (let ((ret (get-string-from-file tmpfile)))
+	       (delete-file tmpfile)
+	       ret
+	       ))))))))
 
 (defun markdown-html (buffer)
   (princ
@@ -1043,6 +1118,6 @@ As an electrical engineer and electronics hobbyist, I find the need to model cir
 * Miscellaneous
 PDF tools is a better PDF viewer than the default DocView. It uses a client-server interface set up for each session by =pdf-tools-install=.
 #+begin_src emacs-lisp
-  (use-package pdf-tools
-    :config (pdf-tools-install))
+(use-package pdf-tools
+  :config (pdf-tools-install))
 #+end_src
