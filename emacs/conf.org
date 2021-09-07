@@ -96,11 +96,20 @@ The rest of the bootstrapping is done as so:
 #+begin_src emacs-lisp :results silent
 (eval-after-load 'gnutls
   '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
+(unless (package-installed-p 'async)
+  (package-refresh-contents)
+  (package-install 'async))
 (unless (package-installed-p 'quelpa)
   (with-temp-buffer
     (url-insert-file-contents "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el")
     (eval-buffer)
     (quelpa-self-upgrade)))
+(let ((path (concat (file-name-as-directory (concat user-emacs-directory "quelpa")) "melpa")))
+  (if (not (file-exists-p path))
+      (make-directory path))
+  (let ((path (concat (file-name-as-directory path) "recipes")))
+    (if (not (file-exists-p path))
+	(make-directory path))))
 (setq use-package-always-ensure t) ; docs say this is deprecated but things break when it's not included
 #+end_src
 
@@ -132,6 +141,10 @@ Simple settings to get rid of things I dislike.
 (tool-bar-mode -1)
 (global-visual-line-mode 1)
 #+end_src
+
+#+RESULTS:
+: t
+
 ** Theme and Font
 [[https://github.com/kootenpv/emacs-kooten-theme][Kooten]] is a dark Emacs theme with mild colors but high contrast between those colors. It is also red-green colorblind friendly, something I greatly appreciate for self-evident reasons. This addition places it further up on my preference list than other popular dark themes.
 
