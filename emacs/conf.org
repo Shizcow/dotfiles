@@ -616,8 +616,6 @@ scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-l
     (setq org-latex-impatient-scale (* 2.6 text-scale-factor))
     (org-latex-preview '(16)))
   )
-(add-hook 'text-scale-mode-hook 'update-org-latex-fragment-scale)
-(add-hook 'org-mode-hook 'update-org-latex-fragment-scale)
 
 ;; Posframe needs to be manually configured
 ;; If not done, it will move the mouse to a different part of the screen
@@ -630,6 +628,7 @@ scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-l
   :after posframe
   :after org
   :hook (org-mode . org-latex-impatient-mode)
+  :hook (org-mode . update-org-latex-fragment-scale)
   :init
   (setq org-latex-impatient-tex2svg-bin
         ;; location of tex2svg executable
