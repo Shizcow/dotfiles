@@ -26,18 +26,25 @@ function sysup --description 'pacaur wrapper that handles a few extra things'
     bash ~/.config/i3status-rs/aurgetcache.sh 2> ~/.config/i3status-rs/.pacaurignored
     # gather data on what to ignore and what orphans to remove
     set ignore_flags (cat ~/.config/i3status-rs/.repo_ignored ~/.config/i3status-rs/.pacaurignored | awk '{printf" --ignore %s", $1}')
-    set orphans (pacman -Qtdq)
+
     # finally, run pacman
-    if test -n "$orphans"
-	# sometimes full system upgrades take a long time
-	# this may cause sudo to time out if ran as two separate commands, and prompt for password twice
-	# therefore, this is all ran as a single sudo command
-	sudo -- sh -xc "sudo -u $USER -- sh -c 'export EDITOR=$EDITOR && pacaur $noconfirm_flag --noedit -Syu$ignore_flags'; export EDITOR=$EDITOR && pacaur $noconfirm_flag -Rns $orphans"
-	echo "Finished system upgrade; removed orphaned package(s): $orphans"
-    else
-	sh -xc "export EDITOR=$EDITOR && pacaur $noconfirm_flag --noedit -Syu$ignore_flags"
-	echo "Finished system upgrade; no orphaned packages need removing"
-    end
+    
+    # sometimes full system upgrades take a long time
+    # this may cause sudo to time out if ran as two separate commands, and prompt for password twice
+    # therefore, this is all ran as a single sudo command
+    # TODO: write my fish config in org-mode becuase this is dumb
+    sudo -- sh -c " \
+	sudo -u $USER -- sh -c '\
+	EDITOR=$EDITOR pacaur $noconfirm_flag --noedit -Syu$ignore_flags; \
+	fish -c \"fisher update\"'; \
+	ORPHANS=\$(pacman -Qtdq); \
+	if [ \"\$ORPHANS\" = \"\" ]; then \
+	    echo \"System update complete; no orphans found.\"; \
+        else \
+	    pacman $noconfirm_flag -Rns \$ORPHANS \
+	    && echo \"System update complete; Removed \$(wc -w <<< \"\$ORPHANS\") orphan(s)\" \
+	    || echo \"System update complete, but did NOT remove \$(wc -w <<< \"\$ORPHANS\") orphan(s)\"; \
+	fi"
 end
 
 export EDITOR=emacs
