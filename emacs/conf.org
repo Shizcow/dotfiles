@@ -80,10 +80,10 @@ Every time Emacs loads, it [re]generates some package management code. Typically
     (load-file custom-file))
 #+end_src
 
-** Bootstrapping use-package
-~use-package~ is a really handy tool for downloading and configuring packages. Problem is, it's not a part of Emacs by default. Therefore to do anything useful it needs to be loaded. The following bootstraps ~use-package~ so that if it is not installed (for example, on a clean system) configuration can continue.
+** Bootstrapping use-package and quelpa
+I like ~use-package~, but occasionally need a git source. However, I don't want to deal with setting up ~straight.el~ when I only need trivial applications. Solution: [[https://github.com/quelpa/quelpa][quelpa]] and [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]].
 
-The easiest way to do so requires ~package.el~, a tool that /is/ built into Emacs. That can be initialized like so:
+But before any of that, ~package.el~ needs to be loaded in. Without it, we can't bootstrap anything else.
 #+begin_src emacs-lisp :results silent
 (require 'package)
 (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
@@ -92,18 +92,25 @@ The easiest way to do so requires ~package.el~, a tool that /is/ built into Emac
 (package-initialize)
 #+end_src
 
-The bootstrapping is done as so:
+The rest of the bootstrapping is done as so:
 #+begin_src emacs-lisp :results silent
 (eval-after-load 'gnutls
   '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'async) ; required somewhat recently
-  (package-install 'use-package))
-(eval-when-compile
-  (require 'async)
-  (require 'use-package))
+(unless (package-installed-p 'quelpa)
+  (with-temp-buffer
+    (url-insert-file-contents "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el")
+    (eval-buffer)
+    (quelpa-self-upgrade)))
 (setq use-package-always-ensure t) ; docs say this is deprecated but things break when it's not included
+#+end_src
+
+The following is required to get ~:quelpa~ syntax within use-package:
+#+begin_src emacs-lisp :results silent
+(quelpa
+ '(quelpa-use-package
+   :fetcher git
+   :url "https://github.com/quelpa/quelpa-use-package.git"))
+(require 'quelpa-use-package)
 #+end_src
 
 The following is used to get ~:ensure-system-package~ from ~use-package~:
@@ -1125,4 +1132,10 @@ PDF tools is a better PDF viewer than the default DocView. It uses a client-serv
 #+begin_src emacs-lisp
 (use-package pdf-tools
   :config (pdf-tools-install))
+#+end_src
+
+I'm also trying out Dired+
+#+begin_src elisp :results silent
+(use-package dired+
+  :quelpa (dired+ :fetcher github :repo "emacsmirror/dired-plus"))
 #+end_src
