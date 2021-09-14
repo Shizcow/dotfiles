@@ -51,6 +51,7 @@ The following snippet does just that; back up this configuration file, nuke the 
 
 <<pivot-reinstall-cfg>>
 #+end_src
+
 * Preamble
 This section contains code required to load and evaluate this configuration file.
 
@@ -976,6 +977,9 @@ sub {
     font-size: 100%%;
     vertical-align: baseline;
     text-decoration: line-through;
+}
+img {
+    max-width: 100%%;
 }
 #+end_src
 
