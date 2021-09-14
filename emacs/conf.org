@@ -834,6 +834,7 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
                                            (progn
                                              (lsp-format-buffer)
                                              (indent-for-tab-command))))))
+(use-package scss-mode)
 (use-package toml-mode)
 (use-package verilog-mode
   :init
