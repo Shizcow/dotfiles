@@ -7,3 +7,4 @@ extra_font_characters/modfont
 emacs/*
 !emacs/conf.org
 !emacs/init.el
+!emacs/spice
