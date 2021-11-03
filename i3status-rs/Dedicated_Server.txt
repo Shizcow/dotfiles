@@ -1,0 +1,10 @@
+Dedicated_Server.txt
+[2021-05-21 12:05:02 INFO] Starting Server
+[2021-05-21 12:05:02 INFO] Version 1.16.221.01
+[2021-05-21 12:05:02 INFO] Session ID d85f37a8-6802-4b99-89a1-a8b7cb120996
+[2021-05-21 12:05:02 ERROR] Error reading file: server.properties
+[2021-05-21 12:05:02 INFO] Level Name: level
+[2021-05-21 12:05:02 ERROR] Error opening allow list file: whitelist.json
+[2021-05-21 12:05:02 INFO] Game mode: 0 Survival
+[2021-05-21 12:05:02 INFO] Difficulty: 1 EASY
+[2021-05-21 12:05:02 ERROR] Failed to load Vanilla Resource Pack, is the vanilla pack missing from the loaded world?

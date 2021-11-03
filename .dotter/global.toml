@@ -4,6 +4,7 @@ depends = ["emacs", "i3", "shells", "qmk", "misc"]
 [emacs.files]
 "emacs/conf.org" = "~/.emacs.d/conf.org"
 "emacs/init.el" = "~/.emacs.d/init.el"
+"emacs/spice" = "~/.emacs.d/spice"
 aspell_dictionary = "~/.aspell.en.pws"
 
 [i3.files]
@@ -26,4 +27,4 @@ i3status-rs = "~/.config/i3status-rs"
 [misc.files]
 global_gitignore = "~/.gitignore"
 ssh = "~/.ssh/config"
-"userChrome.css" = "$FF_CHROME_PATH/chrome/userChrome.css"
+#"userChrome.css" = "$FF_CHROME_PATH/chrome/userChrome.css"

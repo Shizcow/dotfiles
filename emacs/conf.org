@@ -11,8 +11,8 @@ To load this configuration into a running Emacs instance (optionally started as 
 (when (or ; give babel space to compile if required
        (not (boundp 'minibuffer-selected-window))
        (eq (buffer-file-name
-	    (window-buffer (minibuffer-selected-window)))
-	   nil)) ; give babel a place to tangle
+            (window-buffer (minibuffer-selected-window)))
+           nil)) ; give babel a place to tangle
   (write-file
    (concat temporary-file-directory "emacs_conf_tmpwrite.org")))
 (org-babel-load-file
@@ -40,7 +40,7 @@ The following snippet does just that; back up this configuration file, nuke the 
 
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (setq conf-backup-dir (file-name-as-directory
-		  (concat temporary-file-directory "emacs_conf_backup")))
+                       (concat temporary-file-directory "emacs_conf_backup")))
 (if (not (file-exists-p conf-backup-dir))
     (make-directory conf-backup-dir))
 (write-file (concat conf-backup-dir "conf.org"))
@@ -51,6 +51,7 @@ The following snippet does just that; back up this configuration file, nuke the 
 
 <<pivot-reinstall-cfg>>
 #+end_src
+
 * Preamble
 This section contains code required to load and evaluate this configuration file.
 
@@ -80,30 +81,46 @@ Every time Emacs loads, it [re]generates some package management code. Typically
     (load-file custom-file))
 #+end_src
 
-** Bootstrapping use-package
-~use-package~ is a really handy tool for downloading and configuring packages. Problem is, it's not a part of Emacs by default. Therefore to do anything useful it needs to be loaded. The following bootstraps ~use-package~ so that if it is not installed (for example, on a clean system) configuration can continue.
+** Bootstrapping use-package and quelpa
+I like ~use-package~, but occasionally need a git source. However, I don't want to deal with setting up ~straight.el~ when I only need trivial applications. Solution: [[https://github.com/quelpa/quelpa][quelpa]] and [[https://github.com/quelpa/quelpa-use-package][quelpa-use-package]].
 
-The easiest way to do so requires ~package.el~, a tool that /is/ built into Emacs. That can be initialized like so:
+But before any of that, ~package.el~ needs to be loaded in. Without it, we can't bootstrap anything else.
 #+begin_src emacs-lisp :results silent
 (require 'package)
 (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
                          ("melpa" . "https://melpa.org/packages/")
-			 ("org" . "http://orgmode.org/elpa/")))
+                         ("org" . "http://orgmode.org/elpa/")))
 (package-initialize)
 #+end_src
 
-The bootstrapping is done as so:
+The rest of the bootstrapping is done as so:
 #+begin_src emacs-lisp :results silent
 (eval-after-load 'gnutls
   '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
-(unless (package-installed-p 'use-package)
+(unless (package-installed-p 'async)
   (package-refresh-contents)
-  (package-install 'async) ; required somewhat recently
-  (package-install 'use-package))
-(eval-when-compile
-  (require 'async)
-  (require 'use-package))
+  (package-install 'async))
+(unless (package-installed-p 'quelpa)
+  (with-temp-buffer
+    (url-insert-file-contents "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el")
+    (eval-buffer)
+    (quelpa-self-upgrade)))
+(let ((path (concat (file-name-as-directory (concat user-emacs-directory "quelpa")) "melpa")))
+  (if (not (file-exists-p path))
+      (make-directory path))
+  (let ((path (concat (file-name-as-directory path) "recipes")))
+    (if (not (file-exists-p path))
+	(make-directory path))))
 (setq use-package-always-ensure t) ; docs say this is deprecated but things break when it's not included
+#+end_src
+
+The following is required to get ~:quelpa~ syntax within use-package:
+#+begin_src emacs-lisp :results silent
+(quelpa
+ '(quelpa-use-package
+   :fetcher git
+   :url "https://github.com/quelpa/quelpa-use-package.git"))
+(require 'quelpa-use-package)
 #+end_src
 
 The following is used to get ~:ensure-system-package~ from ~use-package~:
@@ -118,22 +135,26 @@ The following is used to get ~:ensure-system-package~ from ~use-package~:
 ** Default Display Settings
 Simple settings to get rid of things I dislike.
 #+begin_src emacs-lisp
-  (setq inhibit-startup-screen t)
-  (setq initial-scratch-message "")
-  (menu-bar-mode -1)
-  (scroll-bar-mode -1)
-  (tool-bar-mode -1)
-  (global-visual-line-mode 1)
+(setq inhibit-startup-screen t)
+(setq initial-scratch-message "")
+(menu-bar-mode -1)
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+(global-visual-line-mode 1)
 #+end_src
+
+#+RESULTS:
+: t
+
 ** Theme and Font
 [[https://github.com/kootenpv/emacs-kooten-theme][Kooten]] is a dark Emacs theme with mild colors but high contrast between those colors. It is also red-green colorblind friendly, something I greatly appreciate for self-evident reasons. This addition places it further up on my preference list than other popular dark themes.
 
 My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pro]]. I just happen to like it.
 #+begin_src emacs-lisp
-  (use-package kooten-theme
+(use-package kooten-theme
   :config
   (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 60))
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 170))
 #+end_src
 
 #+RESULTS:
@@ -142,9 +163,9 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
 ** Rainbow Delimiters
 If you haven't heard of [[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimeters]] I *highly* recommend it. Currently the below turns it on for all programming modes; I have yet to have this cause any problems.
 #+begin_src emacs-lisp
-  (use-package rainbow-delimiters
-    :config
-    (add-hook 'prog-mode-hook 'rainbow-delimiters-mode))
+(use-package rainbow-delimiters
+  :config
+  (add-hook 'prog-mode-hook 'rainbow-delimiters-mode))
 #+end_src
 ** Modeline
 Nothing much to see here.
@@ -230,18 +251,18 @@ I find this keybinding often useful when setting up several similar lines and no
 ** Revert Buffer
 I use this one somewhat frequently, usually as a workaround for not finishing configuration of other things.
 #+begin_src emacs-lisp
-  (defun revert-buffer-smart ()
-    (if (or (not (buffer-modified-p))
-            (yes-or-no-p (format "Buffer '%s' changed on disk. Really revert?" (buffer-name))))
-        (revert-buffer :ignore-auto :noconfirm)
-      (message "Buffer left unchanged"))) 
+(defun revert-buffer-smart ()
+  (if (or (not (buffer-modified-p))
+          (yes-or-no-p (format "Buffer '%s' changed on disk. Really revert?" (buffer-name))))
+      (revert-buffer :ignore-auto :noconfirm)
+    (message "Buffer left unchanged"))) 
 
-  (global-set-key
-   (kbd "C-c r b")
-   (lambda (&optional title)
-     "Revert buffer, only stopping to confirm if the buffer has been edited."
-     (interactive "P")
-     (revert-buffer-smart)))
+(global-set-key
+ (kbd "C-c r b")
+ (lambda (&optional title)
+   "Revert buffer, only stopping to confirm if the buffer has been edited."
+   (interactive "P")
+   (revert-buffer-smart)))
 #+end_src
 
 * Vterm
@@ -251,12 +272,12 @@ Normally, whenever emacs kills a vterm buffer, it alerts the user of a running p
 This can be done with some shell-side configuration. First, the following elisp functions are defined, later to be exposed to vterm. Because vterm can call exported elisp functions, these will allow shell to indicate whether or not a command is in progress:
 #+begin_src emacs-lisp
 (defun vterm-set-active (shell-pid)
-"Tells emacs that the shell attached to a vterm instance is working and should not be killed"
-(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) t))
+  "Tells emacs that the shell attached to a vterm instance is working and should not be killed"
+  (set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) t))
 
 (defun vterm-set-idle (shell-pid)
-"Tells emacs that the shell attached to a vterm instance is idle, and can safely be killed"
-(set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) nil))
+  "Tells emacs that the shell attached to a vterm instance is idle, and can safely be killed"
+  (set-process-query-on-exit-flag (cl-find-if (lambda(el) (eql (process-id el) (string-to-number shell-pid))) (process-list)) nil))
 #+end_src
 
 My preferred shell is fish. The configuration required is in two parts. The first sets the vterm host buffer as active right before every command is executed:
@@ -276,8 +297,8 @@ functions -c fish_prompt old_fish_prompt
 function fish_prompt
     old_fish_prompt
     switch $TERM
-	case xterm-256color # only in vterm
-	    vterm_cmd vterm-set-idle %self
+        case xterm-256color # only in vterm
+            vterm_cmd vterm-set-idle %self
     end
 end
 #+end_src
@@ -326,18 +347,18 @@ function fish_title
     set HOSTNAME (hostname)
 
     if test "$HOSTNAME" = "shizcow"
-	# on local machine
-	if test "$USERNAME" != "notroot"
-	    # worth printing
-	    echo "$USERNAME:"
-	end
+        # on local machine
+        if test "$USERNAME" != "notroot"
+            # worth printing
+            echo "$USERNAME:"
+        end
     else
-	# ssh
-	echo "$USERNAME@$HOSTNAME:"
+        # ssh
+        echo "$USERNAME@$HOSTNAME:"
     end
     
     if test (dirs | head -n1) != "/"
-	dirs | head -n1 | tr -d '\n'
+        dirs | head -n1 | tr -d '\n'
     end
     echo "/"
 end
@@ -348,7 +369,7 @@ I may eventually post a link to my full ~config.fish~ here.
 ** Final Configuration
 There are the final configurations done to vterm. They mostly just pass through some additional keybindings and expose the previously defined idle-switching functions:
 #+begin_src emacs-lisp
-  (use-package vterm
+(use-package vterm
   :ensure-system-package fish
   :init
   (setq vterm-shell "fish")
@@ -377,13 +398,13 @@ Also, configure =bibtex= and =sage= to post-process files. While speed isn't rea
 
 #+begin_src emacs-lisp :results silent
 (setq org-latex-pdf-process
-      ; Always need a first pass
+					; Always need a first pass
       '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
-	    ; bibtex needs some help getting started, so if there is no bibtex file, gen
-        ; once generated (second+ pass), could be empty. If they're empty, no need to run:
+					; bibtex needs some help getting started, so if there is no bibtex file, gen
+					; once generated (second+ pass), could be empty. If they're empty, no need to run:
         "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b; fi'"
-        ; A few things (reference spawning/table of contents/figures/etc) change intermediary files
-	    ; This requires a re-run or two
+					; A few things (reference spawning/table of contents/figures/etc) change intermediary files
+					; This requires a re-run or two
         "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'"))
 #+end_src
 
@@ -406,11 +427,11 @@ I have yet to understand the vast majority of this:
   (org-latex-listings 'minted)
   (org-latex-minted-options '(("frame" "lines") ("linenos=true")))
   (org-latex-packages-alist '(("" "minted")))
-  (org-html-doctype "html5")	; default to HTML5 output
-  (org-html-html5-fancy t)		; enable fancy new tags
-  (org-html-postamble nil)		; disable the postamble
+  (org-html-doctype "html5")    ; default to HTML5 output
+  (org-html-html5-fancy t)              ; enable fancy new tags
+  (org-html-postamble nil)              ; disable the postamble
   (org-html-postamble-format '(("en" "<hr></hr><p class=\"author\">Author: %a</p><p class=\"date\">Date: %d</p>")))
-  (org-html-preamble nil)		; disable the preamble
+  (org-html-preamble nil)               ; disable the preamble
   (org-html-metadata-timestamp-format "%u, %B %e, %Y")
   (org-preview-latex-process-alist
    (quote
@@ -458,7 +479,7 @@ I have yet to understand the vast majority of this:
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")
                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-		 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
   (add-to-list 'org-latex-classes
                '("manual"
                  "\\documentclass{memoir}
@@ -524,6 +545,68 @@ pdflinkmargin=1pt,
 pdfborderstyle={/S/U/W 1}}\n"))
 #+end_src
 
+** Latex Header
+Using =#+latex_header= can get really annoying when using multiple lines.
+The following sets up the =#+begin_src latex-header= environment which will automatically prepend every line with =#+latex_header:= on export.
+
+This also yields the typical benefits from org =src= blocks, such as noweb syntax.
+
+#+begin_src elisp :results silent
+(require 'ob)
+(require 'ob-latex)
+
+(defvar org-babel-default-header-args:latex-header
+  '((:results . "raw") (:exports . "results") (:eval . "only-export")))
+
+(defun org-babel-expand-body:latex-header (body params)
+  (org-babel-expand-body:latex body params))
+
+(defun org-babel-execute:latex-header (body params)
+  (let ((latex_output (org-babel-execute:latex body params)))
+	(replace-regexp-in-string "^" "#+latex_header: " latex_output)
+  ))
+
+(defun org-babel-edit-prep:latex-header (info))
+
+(define-derived-mode latex-header-mode latex-mode "LaTeX Header")
+
+(provide 'ob-latex-header)
+#+end_src
+
+The following adds a =:eval only-export= attribute option to code blocks.
+It is used with the above to ensure that =latex-header= blocks cannot accidentally inject results into the working =.org= buffer.
+
+This is a direct patch from =ob-core.el=.
+
+#+begin_src emacs-lisp :results silent
+(defun org-babel-check-confirm-evaluate (info)
+  "Check whether INFO allows code block evaluation.
+
+Returns nil if evaluation is disallowed, t if it is
+unconditionally allowed, and the symbol `query' if the user
+should be asked whether to allow evaluation."
+  (let* ((headers (nth 2 info))
+	 (eval (or (cdr  (assq :eval headers))
+		   (when (assq :noeval headers) "no")))
+	 (eval-no (member eval '("no" "never")))
+	 (export org-babel-exp-reference-buffer)
+	 (eval-no-export (and export (member eval '("no-export" "never-export"))))
+	 (eval-only-export (and (not export) (equal eval "only-export")))
+	 (noeval (or eval-no eval-no-export eval-only-export))
+	 (query (or (equal eval "query")
+		    (and export (equal eval "query-export"))
+		    (if (functionp org-confirm-babel-evaluate)
+			(funcall org-confirm-babel-evaluate
+				 ;; Language, code block body.
+				 (nth 0 info)
+				 (org-babel--expand-body info))
+		      org-confirm-babel-evaluate))))
+    (cond
+     (noeval nil)
+     (query 'query)
+     (t t))))
+#+end_src
+
 ** Sage
 Sagemath is a Python-derived language which allows for high-level symbolic calculation.
 =ob-sagemath= is a package that allows integration with org-mode.
@@ -584,7 +667,7 @@ I use =M-x count-words= a lot, so have dedicated a keybinding:
 #+end_src
 
 Other stuff
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :results silent
 
 (use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
 
@@ -598,13 +681,101 @@ Other stuff
 
 #+end_src
 
-#+RESULTS:
-
-What I do understand is I need Matlab in org-mode:
 #+begin_src emacs-lisp :results silent
 (org-babel-do-load-languages
  'org-babel-load-languages
  '((matlab . t) (python . t)))
+#+end_src
+** Latex Previews
+The default behavior of in-buffer latex previews leaves a lot left to be desired.
+First off, previews do not scale with the surrounding text. Second off, you can't
+get good live previews. The solution, in two parts is as follows: change the
+scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-latex-impatient]].
+
+#+begin_src elisp :results silent
+(defun update-org-latex-fragment-scale ()
+  (let ((text-scale-factor (expt text-scale-mode-step text-scale-mode-amount)))
+    (plist-put org-format-latex-options :scale (* 1.7 text-scale-factor))
+    (setq org-latex-impatient-scale (* 2.6 text-scale-factor))
+    (org-latex-preview '(16)))
+  )
+
+;; Posframe needs to be manually configured
+;; If not done, it will move the mouse to a different part of the screen
+;; which is super annoying and doesn't fix anything on my wm
+(use-package posframe
+  :init
+  (setq posframe-mouse-banish nil))
+
+(use-package org-latex-impatient
+  :after posframe
+  :after org
+  :hook (org-mode . org-latex-impatient-mode)
+  :hook (org-mode . update-org-latex-fragment-scale)
+  :init
+  (setq org-latex-impatient-tex2svg-bin
+        ;; location of tex2svg executable
+        "~/node_modules/mathjax-node-cli/bin/tex2svg")
+  (setq org-latex-impatient-border-color "white")
+  (setq org-latex-impatient-user-latex-definitions
+        ;; MathJax sucks and I really like using siunitx
+        ;; Luckily, I can live with the most basic features
+        ;; While the below is far from perfect, it is good
+        ;; enough for a quick preview. C-c C-x l will give
+        ;; a more acurate preview
+        '("\\newcommand{\\ensuremath}[1]{#1}" 
+          "\\newcommand{\\usepackage}[1]{}"
+          "\\newcommand{\\yocto}{\\text{y}}"
+          "\\newcommand{\\zepto}{\\text{z}}"
+          "\\newcommand{\\atto}{\\text{a}}"
+          "\\newcommand{\\femto}{\\text{f}}"
+          "\\newcommand{\\pico}{\\text{p}}"
+          "\\newcommand{\\nano}{\\text{n}}"
+          "\\newcommand{\\micro}{\\mu}"
+          "\\newcommand{\\milli}{\\text{m}}"
+          "\\newcommand{\\centi}{\\text{c}}"
+          "\\newcommand{\\deci}{\\text{d}}"
+          "\\newcommand{\\deca}{\\text{da}}"
+          "\\newcommand{\\hecto}{\\text{h}}"
+          "\\newcommand{\\kilo}{\\text{k}}"
+          "\\newcommand{\\mega}{\\text{M}}"
+          "\\newcommand{\\giga}{\\text{G}}"
+          "\\newcommand{\\tera}{\\text{T}}"
+          "\\newcommand{\\peta}{\\text{P}}"
+          "\\newcommand{\\exa}{\\text{E}}"
+          "\\newcommand{\\zetta}{\\text{Z}}"
+          "\\newcommand{\\yotta}{\\text{Y}}"
+          "\\newcommand{\\ampere}{\\text{A}}"
+          "\\newcommand{\\candela}{\\text{cd}}"
+          "\\newcommand{\\kelvin}{\\text{K}}"
+          "\\newcommand{\\kilogram}{\\text{kg}}"
+          "\\newcommand{\\gram}{\\text{g}}"
+          "\\newcommand{\\metre}{\\text{m}}"
+          "\\newcommand{\\mole}{\\text{mol}}"
+          "\\newcommand{\\second}{\\text{s}}"
+          "\\newcommand{\\becqerel}{Bq}"
+          "\\newcommand{\\degreeCelsius}{^\\circ\\text{C}}"
+          "\\newcommand{\\columb}{\\text{C}}"
+          "\\newcommand{\\farad}{\\text{F}}"
+          "\\newcommand{\\gray}{\\text{Gy}}"
+          "\\newcommand{\\hertz}{\\text{Hz}}"
+          "\\newcommand{\\henry}{\\text{H}}"
+          "\\newcommand{\\joule}{\\text{J}}"
+          "\\newcommand{\\lumen}{\\text{lm}}"
+          "\\newcommand{\\katal}{\\text{kat}}"
+          "\\newcommand{\\lux}{\\text{lx}}"
+          "\\newcommand{\\newton}{\\text{N}}"
+          "\\newcommand{\\ohm}{\\Omega}"
+          "\\newcommand{\\pascal}{\\text{Pa}}"
+          "\\newcommand{\\radian}{\\text{rad}}"
+          "\\newcommand{\\siemens}{\\text{S}}"
+          "\\newcommand{\\sievert}{\\text{Sv}}"
+          "\\newcommand{\\steradian}{\\text{sr}}"
+          "\\newcommand{\\tesla}{\\text{T}}"
+          "\\newcommand{\\volt}{\\text{V}}"
+          "\\newcommand{\\watt}{\\text{W}}"
+          "\\newcommand{\\weber}{\\text{Wb}}"
+          "\\newcommand{\\SI}[2]{#1\\hspace{0.5ex}#2}")))
 #+end_src
 ** Org-Ref
 #+begin_src emacs-lisp :results silent
@@ -612,19 +783,19 @@ What I do understand is I need Matlab in org-mode:
   :after org
   :init
   (setq org-ref-bibliography-notes "~/Documents/org-ref/notes.org"
-	org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
-	org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
+        org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
+        org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
 
   (unless (file-exists-p org-ref-pdf-directory)
     (make-directory org-ref-pdf-directory t))
 
   (setq bibtex-autokey-year-length 4
-	bibtex-autokey-name-year-separator "-"
-	bibtex-autokey-year-title-separator "-"
-	bibtex-autokey-titleword-separator "-"
-	bibtex-autokey-titlewords 2
-	bibtex-autokey-titlewords-stretch 1
-	bibtex-autokey-titleword-length 5)
+        bibtex-autokey-name-year-separator "-"
+        bibtex-autokey-year-title-separator "-"
+        bibtex-autokey-titleword-separator "-"
+        bibtex-autokey-titlewords 2
+        bibtex-autokey-titlewords-stretch 1
+        bibtex-autokey-titleword-length 5)
   (require 'org-ref)
   (require 'org-ref-pdf)
   (require 'org-ref-url-utils)
@@ -638,13 +809,13 @@ Emacs's default behavior clutters the filesystem a lot. These configurations aim
 ** Backups
 Taken from the [[https://www.emacswiki.org/emacs/BackupDirectory][Emacs Wiki]]. Note this does AutoSaves as well as backup files.
 #+begin_src emacs-lisp
-  (setq backup-by-copying t
-  backup-directory-alist
-  `(("." . ,(concat user-emacs-directory "backups")))
-  delete-old-versions t
-  kept-new-versions 6
-  kept-old-versions 2
-  version-control t)
+(setq backup-by-copying t
+      backup-directory-alist
+      `(("." . ,(concat user-emacs-directory "backups")))
+      delete-old-versions t
+      kept-new-versions 6
+      kept-old-versions 2
+      version-control t)
 #+end_src
 
 ** Lockfiles
@@ -658,24 +829,24 @@ These tend to screw with poorly put together build systems so I just disable the
 Flycheck is a better alternative to the legacy flymake.
 Also, it's a soft dependency of lsp.
 #+begin_src emacs-lisp :results silent
-  (use-package flycheck
-    :after exec-path-from-shell)
+(use-package flycheck
+  :after exec-path-from-shell)
 #+end_src
 ** LSP
 I dislike __most__ of LSP's functionality. It's too distracting when my buffers get resized and my text moved around. This disables it, while keeping what I consider to be the good features. There will be much more configuration in the future.
 #+begin_src emacs-lisp :results silent
-  (use-package lsp-mode
-    :after flycheck
-    :init
-    (setq lsp-signature-render-documentation nil))
-  (use-package lsp-ui
-    :after lsp-mode
-    :init
-    (setq lsp-ui-doc-enable nil)
-    (setq lsp-ui-peek-enable nil)
-    (setq lsp-ui-sideline-show-hover nil)
-    (setq lsp-ui-sideline-show-code-actions nil)
-    (setq lsp-ui-sideline-show-diagnostics nil))
+(use-package lsp-mode
+  :after flycheck
+  :init
+  (setq lsp-signature-render-documentation nil))
+(use-package lsp-ui
+  :after lsp-mode
+  :init
+  (setq lsp-ui-doc-enable nil)
+  (setq lsp-ui-peek-enable nil)
+  (setq lsp-ui-sideline-show-hover nil)
+  (setq lsp-ui-sideline-show-code-actions nil)
+  (setq lsp-ui-sideline-show-diagnostics nil))
 #+end_src
 ** Languages
 #+begin_src emacs-lisp :results silent
@@ -690,7 +861,10 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
     (setq tab-width 2))
   :config
   (add-hook 'go-mode-hook 'go-setup))
-(use-package markdown-mode)
+(use-package markdown-mode
+  :config
+  (setq markdown-command "multimarkdown")
+  (add-hook 'markdown-mode-hook 'flyspell-mode))
 (use-package matlab
   :ensure matlab-mode
   :config
@@ -722,12 +896,305 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
                                            (progn
                                              (lsp-format-buffer)
                                              (indent-for-tab-command))))))
+(use-package scss-mode)
 (use-package toml-mode)
 (use-package verilog-mode
   :init
   (setq verilog-auto-newline nil))
 #+end_src
 
+** Magit
+TODO: document better. Short version is that this makes some branches restricted so that you can't push or commit to them. Added onto that are a ton of creature comforts.
+#+begin_src elisp :results silent
+(use-package magit
+  :config
+  (setq magit-restricted-git-config-tag "magit.restricted-branches")
+  (setq magit-default-restricted-branches '("main" "master"))
+
+  (defun magit-get-restricted-branches ()
+    (sort (split-string (magit-git-string "config" magit-restricted-git-config-tag) " ")
+	  (lambda (a b) 'string<)))
+
+  (defun magit-restricted-branch-setup ()
+    (setq magit-git-debug-old magit-git-debug)
+    (setq magit-git-debug t)
+    (when (not (magit-git-success "config" magit-restricted-git-config-tag))
+      (magit-call-git "config" magit-restricted-git-config-tag (string-join magit-default-restricted-branches " ")))
+    (setq magit-git-debug magit-git-debug-old))
+  (advice-add 'magit-dispatch :before #'magit-restricted-branch-setup)
+
+  (defun magit-branch-check ()
+    (member (magit-get-current-branch) (magit-get-restricted-branches)))
+
+  (defun magit-commit-branch-check (&optional args)
+    (magit-restricted-branch-setup)
+    (if (magit-branch-check)
+	(progn
+	  (magit-commit-assert args)
+	  (let ((new-branch
+		 (magit-read-string-ns
+		  (format "%s is a restricted branch! Commit changes to new branch"
+			  (magit-get-current-branch)))))
+	    (if (or (string= new-branch "main"))
+		(user-error "Error: Tried to commit arround a restricted branch!")
+	      (progn
+		(magit-stash-save "(auto) moving from restricted branch" t t nil t)
+		(magit-branch-and-checkout new-branch (magit-get-current-branch))
+		(magit-call-git "stash" "pop")
+		(magit-stage-modified)
+		))))))
+  (advice-add 'magit-commit-create :before #'magit-commit-branch-check)
+
+  (defun magit-push-branch-check (&optional args)
+    (magit-restricted-branch-setup)
+    (if (magit-branch-check)
+	(user-error (format "Error: Not allowed to push to %s! If commits are pending, you may need to checkout and cherry-pick." (magit-get-current-branch)))))
+  (advice-add 'magit-push-current-to-pushremote :before #'magit-push-branch-check)
+
+  (defun magit-restricted-view ()
+    (interactive)
+    (message "Restricted branches: %s" (string-join (magit-get-restricted-branches) " ")))
+
+  (defun magit-restricted-add ()
+    (interactive)
+    (let ((restricted-branches (magit-get-restricted-branches))
+	  (target-branch (magit-read-branch "Branch to restrict")))
+      (if (not (member target-branch restricted-branches))
+	  (magit-call-git "config" magit-restricted-git-config-tag
+			  (format "%s %s" (string-join restricted-branches " ") target-branch)))))
+
+  (defun magit-restricted-remove ()
+    (interactive)
+    (let* ((restricted-branches (magit-get-restricted-branches))
+	   (current-branch (magit-get-current-branch))
+	   (target-branch (magit-completing-read "Branch to derestrict" restricted-branches
+						 nil t nil nil (when (member current-branch restricted-branches) current-branch))))
+      (magit-call-git "config" magit-restricted-git-config-tag
+		      (format "%s" (string-join (remove target-branch restricted-branches) " ")))))
+
+  (transient-define-prefix magit-restricted ()
+    "View or modify restriction git attributes"
+    ["Branches"
+     ("v" "View Restrictions"     magit-restricted-view)
+     ("a" "Add a Restriction"    magit-restricted-add)
+     ("r" "Remove a Restriction" magit-restricted-remove)]
+    (interactive)
+    (transient-setup 'magit-restricted))
+
+  (transient-append-suffix 'magit-dispatch "!"
+    '("=" "Restrict" magit-restricted))
+  
+  :bind
+  (:map magit-mode-map ("=" . magit-restricted)))
+#+end_src
+
+** Impatient
+Currently, I only use [[https://github.com/skeeto/impatient-mode][impatient-mode]] to render markdown,
+but I hope to hook it up to ox-html in the near future.
+For markdown, [[https://fletcherpenney.net/multimarkdown/][multimarkdown]] needs to be installed on the
+system.
+
+Below is the custom style-sheet I'm using to hook in to
+the currently running face:
+#+name: impatient-styles
+#+begin_src css
+body {background-color: %s;}
+p,li,pre,table {color: %s;}
+h1   {color: %s;}
+h2   {color: %s;}
+h3   {color: %s;}
+h4   {color: %s;}
+h5   {color: %s;}
+h6   {color: %s;}
+a    {color: %s;}
+code {color: %s;font-family: %s;font-size: 120%%;}
+blockquote {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 50px;
+    padding-left: 15px;
+    border-left: 3px solid %s;
+}
+pre {
+    margin: 0;
+}
+.task-list-item-checkbox {
+    margin: 0 0.75em .25em 0.3em;
+    vertical-align: middle;
+}
+td, th {
+    border: 1px solid %s;
+    padding: 8px;
+}
+th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: %s;
+    color: %s;
+}
+ul {
+    padding-left: 1.4em;
+}
+sub {
+    font-size: 100%%;
+    vertical-align: baseline;
+    text-decoration: line-through;
+}
+img {
+    max-width: 100%%;
+}
+#+end_src
+
+[[https://fletcherpenney.net/multimarkdown/][Multimarkdown]] is great, but it doesn't get things perfectly
+in line according to [[https://github.github.com/gfm/][Github Flavored Markdown]]. the following script
+does some simple modifications to add some of those features.
+
+For code blocks, syntax highlighting is rather difficult.
+Multimarkdown doesn't get the job done, and I can't find anything
+better. As always, the answer is Emacs. But, because I don't want to
+write a parser myself, here I let org-mode do the heavy lifting,
+by having JavaScript scoop up the insides of any code blocks it sees,
+send that to Emacs, and replace in the result. This script simply connects
+to [[https://github.com/skeeto/emacs-web-server/blob/master/simple-httpd.el][httpd]]; the actual setup and processing is in the [[impatient-markdown-hooks][next block]].
+#+name: impatient-script
+#+begin_src js
+document.addEventListener('DOMContentLoaded', function(){
+    // Implement GH-style TODO lists
+    [...document.getElementsByTagName('li')].reverse().forEach((el) => {
+	if(el.innerHTML.match(/^ ?\\[x\\] /)) {
+	    el.innerHTML = el.innerHTML.replace(/^ ?\\[x\\] /, '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\" checked=\"\">');
+	    el.style.listStyleType = 'none';
+	} else if(el.innerHTML.match(/^ ?\\[ \\] /)) {
+	    el.innerHTML = el.innerHTML.replace(/^ ?\\[ \\] /, '<input type=\"checkbox\"  disabled=\"\" class=\"task-list-item-checkbox\">');
+	    el.style.listStyleType = 'none';
+	}
+    });
+
+    // Syntax highlight code blocks
+    [...document.getElementsByTagName('code')].forEach((el) => {
+	if(!el.className)
+            return;
+	// get rid of &amp; and such
+	var div = document.createElement('div');
+	div.innerHTML = el.innerHTML.replace(/^\\s+|\\s+$/g, '');
+	var decoded = div.firstChild.nodeValue;
+	// and talk to the webserver
+	fetch('http://localhost:%s/babel-format?lang='
+	      + el.className +'&data='
+	      + btoa(decoded).replaceAll('=', '~'))
+	    .then(response => response.text())
+	    .then(text => {
+		el.innerHTML = text.replace('\\n', '').split('\\n').reverse().join('\\n').replace('\\n', '').replace('\\n', '').split('\\n').reverse().join('\\n');
+	    });
+    });
+});
+#+end_src
+
+Gluing this all together is a bit of elisp, which serves the org-mode powered
+syntax highlighting servlet as well as tells impatient-mode how to handle
+markdown. Finally, there is an interactive function =markdown-preview=
+(already bound to =C-c C-c p=) which spins everything up and opens the
+corresponding impatient page in the web browser.
+#+name: impatient-markdown-hooks
+#+begin_src elisp :results silent :noweb no-export
+(defun color-to-css (color)
+  (format "#%s"
+	  (mapconcat (lambda (x) (format "%02x" (/ x 256))) (color-values color) "")))
+
+(use-package simple-httpd
+  :after org
+  :config
+  (defservlet babel-format text/plain (path args)
+    (setq inhibit-message nil)
+    (insert
+     (let ((data (cadr (assoc "data" args)))
+	   (lang (cadr (assoc "lang" args))))
+       (let ((data (base64-decode-string
+		    (replace-regexp-in-string "~" "=" (replace-regexp-in-string " " "+" (format "%s" data))))))
+	 (with-temp-buffer
+	   (let ((tmpname (buffer-name)) (tmpfile (make-temp-file "babel-format")))
+	     (insert "#+begin_src " lang "\n" data "\n#+end_src\n")
+	     (setq inhibit-message t)
+	     (org-export-to-file 'html tmpfile
+	       nil nil nil t nil)
+	     (setq inhibit-message nil)
+	     (let ((ret (get-string-from-file tmpfile)))
+	       (delete-file tmpfile)
+	       ret
+	       ))))))))
+
+(defun markdown-html (buffer)
+  (princ
+   (concat (format "<head><style>
+<<impatient-styles>>
+</style><script>
+<<impatient-script>>
+</script></head>\n"
+		   (color-to-css (face-attribute 'default                   :background nil t))
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-1    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-2    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-3    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-4    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-5    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-header-face-6    :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-link-face        :foreground nil t))
+		   (color-to-css (face-attribute 'markdown-inline-code-face :foreground nil t))
+		   (face-attribute 'markdown-inline-code-face :family nil t)
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'default                   :foreground nil t))
+		   (color-to-css (face-attribute 'region                    :background nil t))
+		   (color-to-css (face-attribute 'region                    :foreground nil t))
+		   httpd-port
+		   )
+	   (with-temp-buffer
+	     (let ((tmpname (buffer-name)))
+	       (set-buffer buffer)
+	       (untabify (point-min) (point-max))
+	       (set-buffer (markdown tmpname)) ; the function markdown is in `markdown-mode.el'
+	       (buffer-string))))
+   (current-buffer)))
+
+(use-package impatient-mode
+  :after markdown-mode
+  :after simple-httpd
+  :config
+  (defun markdown-preview (&optional output-buffer-name)
+    "Run `markdown-command' on the current buffer and view output in browser."
+    (interactive)
+    (if (not (httpd-running-p)) (httpd-start))
+    (impatient-mode 1)
+    (imp-set-user-filter 'markdown-html)
+    (start-process "" nil "xdg-open" (format "http://localhost:%i/imp/live/%s" httpd-port (buffer-name))))
+  )
+#+end_src
+* Circuits
+As an electrical engineer and electronics hobbyist, I find the need to model circuits often. =tikz= works well, but does not provide simulation results. LTspice works well, but it's (1) ancient technology and (2) not Emacs. Solution: throw everything into org-mode.
+
+
+#+begin_src emacs-lisp :results silent
+(use-package spice-mode
+  :config
+  ;; spice-mode does not automatically do file-extensions
+  (add-to-list 'auto-mode-alist '("\\.cir$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.ckt$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.inp$"          . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.spout$"        . spice-mode));hspice out
+  (add-to-list 'auto-mode-alist '("\\.pdir$"         . spice-mode))
+ ;;; Intel formats
+  (add-to-list 'auto-mode-alist '("\\.[sS][pP]$"     . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.[sm]?t0$"      . spice-mode))
+  (add-to-list 'auto-mode-alist '("\\.[h]?spice$"    . spice-mode))
+
+  (add-to-list 'load-path "~/.emacs.d/spice/")
+  (require 'ob-spice)
+
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((spice . t)))
+  )
+#+end_src
 * Utility functions
 ** Revert All Buffers
 #+begin_src emacs-lisp
@@ -737,12 +1204,18 @@ I dislike __most__ of LSP's functionality. It's too distracting when my buffers 
   (dolist (buf (buffer-list))
     (with-current-buffer buf
       (when (and (buffer-file-name) (file-exists-p (buffer-file-name)) (not (buffer-modified-p)))
-	(revert-buffer t t t) )))
+        (revert-buffer t t t) )))
   (message "Refreshed open files."))
 #+end_src
 * Miscellaneous
 PDF tools is a better PDF viewer than the default DocView. It uses a client-server interface set up for each session by =pdf-tools-install=.
 #+begin_src emacs-lisp
-  (use-package pdf-tools
-    :config (pdf-tools-install))
+(use-package pdf-tools
+  :config (pdf-tools-install))
+#+end_src
+
+I'm also trying out Dired+
+#+begin_src elisp :results silent
+(use-package dired+
+  :quelpa (dired+ :fetcher github :repo "emacsmirror/dired-plus"))
 #+end_src
