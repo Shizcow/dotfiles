@@ -154,7 +154,7 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
 (use-package kooten-theme
   :config
   (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 170))
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 60))
 #+end_src
 
 #+RESULTS:
