@@ -154,7 +154,7 @@ My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pr
 (use-package kooten-theme
   :config
   (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 170))
+  (set-face-attribute 'default nil :family "Office Code Pro" :height 110))
 #+end_src
 
 #+RESULTS:
@@ -545,6 +545,16 @@ pdflinkmargin=1pt,
 pdfborderstyle={/S/U/W 1}}\n"))
 #+end_src
 
+** TODO Word Count
+When writing academic papers, word counts are often required.
+A great way to deal with these is =org-wc=.
+
+#+begin_src elisp :results silent
+(use-package org-wc
+  :after org
+  )
+#+end_src
+
 ** Latex Header
 Using =#+latex_header= can get really annoying when using multiple lines.
 The following sets up the =#+begin_src latex-header= environment which will automatically prepend every line with =#+latex_header:= on export.
@@ -657,6 +667,23 @@ Executing the code above yields:
 This also allows integration with org-ref via the label attribute. See [Eq. ref:eq-sage-sample] for the contents of =r= after the code in [Lst. ref:code-sage-sample] is ran.
 
 *Note:* spawning a sage session is slow, but =ob-sagemath= re-uses sessions intelligently. Therefore, cache is not required.
+** GLS
+L
+Shaders are really cool, and shaders in org-mode are even cooler.
+
+#+begin_src elisp :results silent
+(use-package glsl-mode)
+(use-package ob-glsl
+  :after glsl-mode
+  :quelpa (ob-glsl
+		   :fetcher github
+		   :repo "shizcow/ob-glsl"
+		   :files ("*.el" "*.cpp" "*.hpp" "CMakeLists.txt" "*.h" "*.so"))
+  :custom
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((glsl . t))))
+#+end_src
 ** Additional Config
 I use =M-x count-words= a lot, so have dedicated a keybinding:
 #+begin_src emacs-lisp :results silent
@@ -987,6 +1014,15 @@ TODO: document better. Short version is that this makes some branches restricted
   :bind
   (:map magit-mode-map ("=" . magit-restricted)))
 #+end_src
+
+*** Forge
+#+begin_src elisp :result silent
+(use-package forge
+  :after magit
+)
+#+end_src
+
+#+RESULTS:
 
 ** Impatient
 Currently, I only use [[https://github.com/skeeto/impatient-mode][impatient-mode]] to render markdown,
