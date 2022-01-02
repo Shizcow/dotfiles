@@ -3,6 +3,8 @@ set $mod Mod4
 # disable title bars
 new_window pixel 0
 
+exec_always xrdb -merge .Xresources
+
 # TODO: stop using i3
 
 # >>> Wallpaper <<<
@@ -134,7 +136,6 @@ bindsym $mod+Shift+r restart
 bar {
     font pango:DejaVu Sans Mono, FontAwesome 20
     status_command i3status-rs ~/.config/i3status-rs/config.toml
-    tray_output primary
     colors {
         separator #666666
         background #222222
