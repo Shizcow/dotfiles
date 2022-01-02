@@ -667,8 +667,7 @@ Executing the code above yields:
 This also allows integration with org-ref via the label attribute. See [Eq. ref:eq-sage-sample] for the contents of =r= after the code in [Lst. ref:code-sage-sample] is ran.
 
 *Note:* spawning a sage session is slow, but =ob-sagemath= re-uses sessions intelligently. Therefore, cache is not required.
-** GLS
-L
+** GLSL
 Shaders are really cool, and shaders in org-mode are even cooler.
 
 #+begin_src elisp :results silent
