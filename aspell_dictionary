@@ -1,4 +1,4 @@
-personal_ws-1.1 en 118 
+personal_ws-1.1 en 124 
 APA
 AUCC
 Abelian
@@ -54,11 +54,14 @@ TIVA
 TODO
 Thevenin
 Vterm
+Wireshark
 accuracies
 benchmarking
 bottlenecked
 bottlenecking
+broadcasted
 capacitive
+computable
 corporatist
 disproportionally
 elisp
@@ -88,8 +91,10 @@ multicore
 mutex
 natively
 nops
+nullable
 overrider
 pentode
+performant
 phasor
 pipelined
 pipelining
@@ -101,6 +106,7 @@ redistributive
 reproducibility
 resistive
 resocialization
+responders
 runtimes
 servlet
 shader
