@@ -76,27 +76,27 @@ set $ws18 "18"
 set $ws19 "19"
 set $ws20 "20"
 
-# switch to workspace
-bindsym $mod+1 workspace $ws1
-bindsym $mod+2 workspace $ws2
-bindsym $mod+3 workspace $ws3
-bindsym $mod+4 workspace $ws4
-bindsym $mod+5 workspace $ws5
-bindsym $mod+6 workspace $ws6
-bindsym $mod+7 workspace $ws7
-bindsym $mod+8 workspace $ws8
-bindsym $mod+9 workspace $ws9
-bindsym $mod+0 workspace $ws10
-bindsym $mod+Ctrl+1 workspace $ws11
-bindsym $mod+Ctrl+2 workspace $ws12
-bindsym $mod+Ctrl+3 workspace $ws13
-bindsym $mod+Ctrl+4 workspace $ws14
-bindsym $mod+Ctrl+5 workspace $ws15
-bindsym $mod+Ctrl+6 workspace $ws16
-bindsym $mod+Ctrl+7 workspace $ws17
-bindsym $mod+Ctrl+8 workspace $ws18
-bindsym $mod+Ctrl+9 workspace $ws19
-bindsym $mod+Ctrl+0 workspace $ws20
+# switch to workspace                        
+bindsym $mod+1 workspace $ws1                
+bindsym $mod+2 workspace $ws2                
+bindsym $mod+3 workspace $ws3                
+bindsym $mod+4 workspace $ws4                
+bindsym $mod+5 workspace $ws5                
+bindsym $mod+6 workspace $ws6                
+bindsym $mod+7 workspace $ws7		     
+bindsym $mod+8 workspace $ws8		     
+bindsym $mod+9 workspace $ws9		     
+bindsym $mod+0 workspace $ws10		     
+bindsym $mod+Ctrl+1 workspace $ws11	     
+bindsym $mod+Ctrl+2 workspace $ws12	     
+bindsym $mod+Ctrl+3 workspace $ws13	     
+bindsym $mod+Ctrl+4 workspace $ws14	     
+bindsym $mod+Ctrl+5 workspace $ws15	     
+bindsym $mod+Ctrl+6 workspace $ws16	     
+bindsym $mod+Ctrl+7 workspace $ws17	     
+bindsym $mod+Ctrl+8 workspace $ws18	     
+bindsym $mod+Ctrl+9 workspace $ws19	     
+bindsym $mod+Ctrl+0 workspace $ws20	     
 
 # move focused container to workspace
 bindsym $mod+Shift+1 move container to workspace $ws1
@@ -127,6 +127,15 @@ bindsym --whole-window $mod+button5 workspace next_on_output
 # S-arrows to change workspaces
 bindsym $mod+Ctrl+Left workspace prev_on_output
 bindsym $mod+Ctrl+Right workspace next_on_output
+
+# Windows VM stuff
+for_window [class="^looking-glass-client$"] move scratchpad
+set $vm_mode Windows VM
+bindsym Num_Lock [class="^looking-glass-client$"] fullscreen enable,scratchpad show,mode "$vm_mode"
+mode "$vm_mode" {
+     bindsym Num_Lock [class="^looking-glass-client$"] move scratchpad,mode "default"
+}
+exec --no-startup-id "sh ~/qemu_shit/start.sh"
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
