@@ -5,6 +5,7 @@
 
 enum custom_keycodes {
     RGB_DEF = SAFE_RANGE,
+    ACTION_SUSPEND,
     CL_TOG,
     CL_ANIM_TOG,
 };
@@ -40,6 +41,13 @@ AnimationInfo AnimationInfo_get_current(void) {
   return ret;
 }
 
+const static AnimationInfo NO_ANIMATION = {
+  .mode = 0,
+  .hsv = { 0, 0, 0 },
+  .speed = 0,
+  false
+};
+
 const static AnimationInfo DEFAULT_ANIMATION = {
   .mode = 37,
   .hsv = { 200, 240, 130 },
@@ -56,10 +64,25 @@ const static AnimationInfo CAPSLOCK_ANIMATION = {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   static bool is_caps_lock = false;
+  static bool is_suspended = false;
   static AnimationInfo prev_animation;
+  static AnimationInfo pre_suspension_animation;
 
   static bool caps_swapped = false;
   static bool caps_animation_swapped = false;
+
+  // Suspension
+  if(keycode == ACTION_SUSPEND && record->event.pressed) {
+      is_suspended = !is_suspended;
+      if(is_suspended) {
+	pre_suspension_animation = AnimationInfo_get_current();
+	AnimationInfo_to_kbd(NO_ANIMATION);
+      } else {
+	AnimationInfo_to_kbd(pre_suspension_animation);
+      } 
+  }
+  if(is_suspended)
+    return false;
 
   // RGB stuff
   switch (keycode) {
@@ -107,10 +130,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     break;
   }
 
+  // When alt and space are pressed together in Windows, a menu pops up on most windows
+  // This is extreemly annoying, especially in games
+  // This bit of code makes sure that (left) alt and space can't be pressed together
   static bool is_alt = false;
   static bool is_spc = false;
   
-  // stupid space shit
   switch (keycode) {
   case KC_LALT:
     if(is_spc && record->event.pressed) {
@@ -152,7 +177,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [_FL] = LAYOUT(
-    _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,
+    _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  ACTION_SUSPEND,
     _______,     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  RESET,    _______,
     _______,     RGB_TOG,  RGB_MOD,  RGB_HUI,  RGB_HUD,  RGB_SAI,  RGB_SAD,  RGB_VAI,  RGB_VAD,  _______,  _______,  _______,  _______,  _______,            _______,
     CL_TOG,      _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,                      RGB_DEF,  _______,
