@@ -1,3 +1,7 @@
+if set -q SSH_CLIENT; or set -q SSH_TTY
+    set IN_SSH true
+end
+
 set fish_greeting
 
 if status is-interactive && type -q thefuck
@@ -13,29 +17,50 @@ end
 
 function sysup --description 'pacaur wrapper that handles a few extra things'
     # Parse args
-    if test "$argv" = "--noconfirm"
-	set noconfirm_flag "--noconfirm"
-    else if test "$argv" = ""
-	set noconfirm_flag ""
-    else
-	echo 'sysup: invalid arguement' 1>&2
-	echo 'Usage: sysup [--noconfirm]' 1>&2
-	return 1
-    end
-    # generate the list of what orphans should be removed
-    bash ~/.config/i3status-rs/aurgetcache.sh 2> ~/.config/i3status-rs/.pacaurignored
-    # gather data on what to ignore and what orphans to remove
-    set ignore_flags (cat ~/.config/i3status-rs/.repo_ignored ~/.config/i3status-rs/.pacaurignored | awk '{printf" --ignore %s", $1}')
 
-    # finally, run pacman
+    set argarray $argv
+    set ignorepkgs
+
+    set noconfirm_flag ""
+    set noconffound "no"
+
+    while test (count $argarray) -gt 0
+	if test "$argarray[1]" = "--noconfirm"
+	    set noconfirm_flag "--noconfirm"
+	    set noconffound "yes"
+	    set argarray $argarray[2..]
+	else if test "$argarray[1]" = "--ignore"
+	    set -a ignorepkgs $argarray[2]
+	    set argarray $argarray[3..]
+	else
+	    echo 'sysup: invalid arguement' 1>&2
+	    echo 'Usage: sysup [--noconfirm] [--ignore X]...' 1>&2
+	    return 1
+	end
+    end
+
+    echo "Packages to ignore: $ignorepkgs"
+    echo "Operating in noconfirm mode: $noconffound"
     
+    # gather data on what to ignore and what orphans to remove
+    # - $ignored_packages is persistent/global
+    # - $ignorepkgs is from the command line input to sysup
+    # Ugly if statement fix one day
+    if test (count $ignorepkgs) -gt 0
+	set ignore_flags (string split " " "$ignored_packages" | awk '{printf" --ignore %s", $1}') (string split " " "$ignorepkgs" | awk '{printf" --ignore %s", $1}')
+    else
+	set ignore_flags (string split " " "$ignored_packages" | awk '{printf" --ignore %s", $1}')
+    end
+    
+    # finally, run pacman
+    echo "Passing additional flags: $noconfirm_flag $ignore_flags"
     # sometimes full system upgrades take a long time
     # this may cause sudo to time out if ran as two separate commands, and prompt for password twice
     # therefore, this is all ran as a single sudo command
     # TODO: write my fish config in org-mode becuase this is dumb
     sudo -- sh -c " \
 	sudo -u $USER -- sh -c '\
-	EDITOR=$EDITOR pacaur $noconfirm_flag --noedit -Syu$ignore_flags; \
+	EDITOR=$EDITOR pacaur $noconfirm_flag --noedit -Syu $ignore_flags; \
 	fish -c \"fisher update\"'; \
 	ORPHANS=\$(pacman -Qtdq); \
 	if [ \"\$ORPHANS\" = \"\" ]; then \
@@ -193,7 +218,6 @@ switch $TERM
 
 	function vterm_prompt_end --description 'Used for directory tracking in vterm'
 	    vterm_printf '51;A'(whoami)'@'(hostname)':'(pwd)
-	    vterm_cmd vterm-set-idle $self_redirect
 	end
 
 	function vterm_cmd --description 'Run an emacs command among the ones been defined in vterm-eval-cmds.'
@@ -205,12 +229,21 @@ switch $TERM
 	end
 
 	function vterm_before --on-event fish_preexec
-	    vterm_cmd vterm-set-active $self_redirect
+	    if test -n "$IN_SSH"
+		
+	    else
+		vterm_cmd vterm-set-active $self_redirect
+	    end
 	end
 
 	functions -c fish_prompt vterm_old_fish_prompt
 	function fish_prompt --description 'Write out the prompt; do not replace this. Instead, put this at end of your file.'
 	    printf "%b" (string join "\n" (vterm_old_fish_prompt))
 	    vterm_prompt_end
+	    if test -n "$IN_SSH"
+		
+	    else
+		vterm_cmd vterm-set-idle $self_redirect
+	    end
 	end
 end

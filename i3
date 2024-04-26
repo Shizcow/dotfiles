@@ -130,10 +130,15 @@ bindsym $mod+Ctrl+Right workspace next_on_output
 
 # Windows VM stuff
 for_window [class="^looking-glass-client$"] move scratchpad
-set $vm_mode Windows VM
-bindsym Num_Lock [class="^looking-glass-client$"] fullscreen enable,scratchpad show,mode "$vm_mode"
+set $vm_mode WindowsVM
+set $wsvm VM
+# Holy hell, i3 please this is such a pain in the ass I just want PiP to render on top of a fullscreen window
+bindsym Num_Lock exec sh -c "i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name' > ~/.config/i3/.last_workspace_prior_to_vmswitch && i3-msg 'workspace "$wsvm"'"; [class=\"^looking-glass-client$\"] fullscreen enable,bar mode invisible,scratchpad show,floating disable,move container to workspace $wsvm;[window_role=\"^PictureInPicture$\" workspace=__focused__] move container to workspace $wsvm;mode $vm_mode;[class=\"^looking-glass-client$\"] fullscreen disable
+
 mode "$vm_mode" {
-     bindsym Num_Lock [class="^looking-glass-client$"] move scratchpad,mode "default"
+     bindsym Num_Lock [class="^looking-glass-client$"] move scratchpad;mode "default";bar mode dock;exec sh -c "i3-msg '[window_role=\"^PictureInPicture$\"  workspace=__focused__] move container to workspace '$(cat ~/.config/i3/.last_workspace_prior_to_vmswitch)"; exec sh -c "i3-msg 'workspace '$(cat ~/.config/i3/.last_workspace_prior_to_vmswitch)"
+     
+     bindsym Print exec flameshot gui
 }
 exec --no-startup-id "sh ~/qemu_shit/start.sh"
 

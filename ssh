@@ -13,3 +13,14 @@ Host lcs linuxa4.engr.colostate.edu
 Host cs denver.cs.colostate.edu
   Hostname denver.cs.colostate.edu
   User dpohl
+
+Host rg-login
+  User dpohl3
+  HostName rg-login.crnch.gatech.edu
+  IdentityFile ~/.ssh/id_rsa
+
+Host hawksbill
+  User dpohl3
+  HostName hawksbill
+  ProxyCommand ssh -W %h:%p rg-login
+  IdentityFile ~/.ssh/id_rsa

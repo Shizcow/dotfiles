@@ -1,33 +1,28 @@
-theme = "slick"
-icons = "awesome"
-
-[[block]]
-block = "custom"
-command = "printf '\\uf1b2 '; and bedrock_count"
-interval = 1
+# theme = "slick"
+# icons = "awesome"
 
 [[block]]
 block = "cpu"
 interval = 2
-format = "{barchart} {utilization}"
+format = "$barchart $utilization"
 
 [[block]]
 block = "temperature"
-collapsed = false
+# collapsed = false
 
 [[block]]
 block = "memory"
-display_type = "memory"
-format_mem = "{mem_used;G}/{mem_total;G}"
-format_swap = "{swap_used;G}/{swap_total;G}"
-clickable = true
+# display_type = "memory"
+# format_mem = "{mem_used;G}/{mem_total;G}"
+# format_swap = "{swap_used;G}/{swap_total;G}"
+# clickable = true
 interval = 1
 
 [[block]]
 block = "disk_space"
 path = "/"
 info_type = "used"
-format = "/ {used}/{total}"
+format = "/ $used/$total"
 alert = 95
 warning = 90
 
@@ -46,4 +41,4 @@ interval = 5
 block = "custom"
 command = "sh /home/notroot/.config/i3status-rs/date.sh" # ordinals
 interval = 1
-on_click = "exec emacs -f \"calendar\""
+# on_click = "exec emacs -f \"calendar\""

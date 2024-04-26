@@ -16,11 +16,15 @@ update_on = "never"
 update_on = "never"
 
 # Stable doesn't work and this would also require a change in VM so sticking with what's stable
-[looking-glass-git]
+[looking-glass]
 update_on = "never"
-[looking-glass-host-git]
+[looking-glass-host]
 update_on = "never"
-[looking-glass-module-dkms-git]
+[looking-glass-module-dkms]
 update_on = "never"
-[obs-plugin-looking-glass-git]
+[obs-plugin-looking-glass]
+update_on = "never"
+
+# qmk requires a specific avr-gcc version
+[avr-gcc]
 update_on = "never"
