@@ -1,1 +1,1 @@
-(org-babel-load-file (concat user-emacs-directory "conf.org"))
+(org-babel-load-file (concat (file-name-as-directory user-emacs-directory) "conf.org"))

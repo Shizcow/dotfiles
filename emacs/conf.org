@@ -2,74 +2,167 @@
 #+author: Devin Pohl
 #+STARTUP: content
 
+* Introduction
+This org file serves as my personal Emacs configuration. It also provides additional configuration for other system programs and tools for the purpose of better integrating into Emacs. The sole exception is [[*init.el][init.el]], which simply loads this file on startup.
+
+Permanently installing or temporarily testing this configuration is supported. See the [[Quick-Start]] section for a list of org-executable scripts.
+
+The last major revision of this configuration was on Aug 22, 2023 when I started my PhD in Computer Science. Before this point, I had never performed serious research. Being an [[https://www.youtube.com/watch?v=urcL86UpqZc&pp=ygUiaW50ZXJ2aWV3IHdpdGggYW4gZW1hY3MgZW50aHVzaWFzdA%3D%3D][Emacs Enthusiast]], the obvious choice was to integrate yet another part of my life into my text editor. My research methodology will eventually be included in this file... once I figure it out.
+
 * Quick-Start
-** Testing
-To load this configuration into a running Emacs instance (optionally started as =emacs -q= to remove other configuration), simply open this file as a buffer, enable =org-mode= and =C-c C-c= to run the following source block:
+Clicking any of the links below will execute some elisp to use this configuration. Descriptions and code are in the below sub-sections.
+ | [[elisp:(org-sbe "test-install-cfg")][Try in a new Emacs instance]] | [[elisp:(org-sbe "test-load-cfg")][Load on top of current config]] | [[elisp:(org-sbe "install-cfg")][Install on a fresh system]] | [[elisp:(org-sbe "nuke-and-pave")][Nuke existing config and re-install]] |
+ |                                                                     |                                                                    |                                                              |                                                                          |
+** Try in a new Emacs instance
+This is the recommended method of trying out this config. It does not touch your current config. The Emacs config directory is changed to a temporary directory, which is deleted after the subprocess exits. It (should) leave your system in a clean state.
+
+To start a *new* Emacs instance with this config loaded, simply open this file as a buffer, enable =org-mode= and either click [[elisp:(org-sbe "test-install-cfg")][this link]] or =C-c C-c= in the following source block. Emacs is started with =-q=, so this is a guarenteed clean environment.
 
 #+name: test-install-cfg
 #+begin_src emacs-lisp :tangle no :results silent
-(when (or ; give babel space to compile if required
-       (not (boundp 'minibuffer-selected-window))
-       (eq (buffer-file-name
-            (window-buffer (minibuffer-selected-window)))
-           nil)) ; give babel a place to tangle
-  (write-file
-   (concat temporary-file-directory "emacs_conf_tmpwrite.org")))
-(org-babel-load-file
- (buffer-file-name
-  (window-buffer
-   (minibuffer-selected-window))))
+  (let* ((private (make-symbol "private"))
+	 (old-buffer (current-buffer))
+	 (tmp-directory-name (make-temp-file "emacs-config-" t))
+	 (tmp-file-name-org (concat (file-name-as-directory tmp-directory-name) "conf.org"))
+	 (tmp-file-name-el (concat (file-name-as-directory tmp-directory-name) "conf.el")))
+    (with-demoted-errors ""
+      (progn
+	(put private 'no-need-to-delete nil)
+	(with-temp-file tmp-file-name-org
+	  (insert-buffer-substring old-buffer))
+	(org-babel-tangle nil tmp-file-name-el)
+	(start-process "emacs_tmpconfig" nil "emacs" "-q" "--eval" (concat "(add-hook 'kill-emacs-hook (lambda () (delete-directory \"" tmp-directory-name "\" t)))") "--eval" (concat "(setq user-emacs-directory \"" tmp-directory-name "\")") "--load" tmp-file-name-el "--eval" (concat "(find-file \"" tmp-file-name-org "\")"))
+	(put private 'no-need-to-delete t)))
+    (unless (get private 'no-need-to-delete) (delete-directory tmp-directory-name t)))
 #+end_src
+** Load on top of current config
+This is the recommended method of re-loading this config. It will evaluate the contents of this file in the current Emacs instance, adding on top of the existing configuration. [[https://stackoverflow.com/a/2580726][See this StackOverflow]] post if you don't know why this could cause problems.
 
-** Installing
-To save this configuration into =user-emacs-directory= _and_ load into the current instance, *overwriting any current configuration*, simply open this file as a buffer, enable =org-mode= and =C-c C-c= to run the following source block:
+To load this configuration into the current Emacs instance, either click [[elisp:(org-sbe "test-load-cfg")][this link]] or =C-c C-c= in the following source block:
 
-#+name: pivot-reinstall-cfg
-#+begin_src emacs-lisp :tangle no :noweb yes :results silent
-<<write-init-el>>
-(write-file (concat user-emacs-directory "conf.org"))
-<<test-install-cfg>>
-(message "Done writing config and installing/configuring packages")
+#+name: test-load-cfg
+#+begin_src emacs-lisp :tangle no :results silent
+  (let* ((old-buffer (current-buffer))
+	 (tmp-directory-name (make-temp-file "emacs-config-" t))
+	 (tmp-file-name-org (concat (file-name-as-directory tmp-directory-name) "conf.org")))
+    (unwind-protect
+	(progn
+	  (with-temp-file tmp-file-name-org
+	    (insert-buffer-substring old-buffer))
+	  (org-babel-load-file tmp-file-name-org)
+	  )
+      (delete-directory tmp-directory-name t)))
 #+end_src
+** Install on a fresh system
+This is the recommended method for me ({{{author}}}, the author) to get Emacs up and running on a new machine.
 
-Note that =init.el= will be overwritten, as will =conf.org= (if it exists). This file will be saved to =conf.org=, and the small amount of startup code required to load =conf.org= will be placed into =init.el=.
-** Nuke + Install
+To write this config to =.emacs.d= and evaluate, either click [[elisp:(org-sbe "install-cfg")][this link]] or =C-c C-c= in the following source block:
+
+#+name: install-cfg
+#+begin_src emacs-lisp :tangle no :results silent :noweb yes
+  <<write-init-el>>
+  (write-file (concat user-emacs-directory "conf.org"))
+  (org-babel-load-file (concat user-emacs-directory "conf.org"))
+  (message "Done writing config and installing/configuring packages")
+#+end_src
+** Nuke existing config and re-install
 Often times, normal user commands can screw with the purity of a configuration. As a basic example, running =M-x package-install= will add components to a working system but will drive the system out of sync from its configuration. Therefore, in order to ensure the configuration will immediately and correctly set up on a new system, a way of testing clean installs is desired. The easiest (and most satisfying) method of achieving this is just nuking the entire Emacs user directory.
 
-The following snippet does just that; back up this configuration file, nuke the Emacs user directory, and pivot to reinstall. As with the previous segments, just =C-c C-c= to run:
+The following snippet does just that; back up this configuration file, nuke the Emacs user directory, and pivot to reinstall.
 
+To perform this action, click [[elisp:(org-sbe "nuke-and-pave")][this link]] or =C-c C-c= from within the below code block:
+
+#+name: nuke-and-pave
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
-(setq conf-backup-dir (file-name-as-directory
-                       (concat temporary-file-directory "emacs_conf_backup")))
-(if (not (file-exists-p conf-backup-dir))
-    (make-directory conf-backup-dir))
-(write-file (concat conf-backup-dir "conf.org"))
-
-(if (file-exists-p user-emacs-directory)
-    (delete-directory user-emacs-directory t))
-(make-directory user-emacs-directory)
-
-<<pivot-reinstall-cfg>>
+(let* ((dotemacs-backup-dir (make-temp-file "dotemacs-backup-" t)))
+  (copy-directory user-emacs-directory (concat dotemacs-backup-dir ".emacs.d"))
+  (if (file-exists-p user-emacs-directory)
+      (delete-directory user-emacs-directory t))
+  (make-directory user-emacs-directory)
+  <<install-cfg>>
+  (message "Previous Emacs configuration backed up to %s" dotemacs-backup-dir)
+  )
 #+end_src
-
 * Preamble
 This section contains code required to load and evaluate this configuration file.
 
+** Utility Functions
+Below are some core utility functions used to help in this configuration file.
+
+#+begin_src elisp
+(defmacro requote (form) (format "%S" form))
+
+(defun xah-create-random-uuid ()
+  "Create a UUID.
+This commands calls “uuidgen” on MacOS, Linux, and calls PowelShell on Microsoft Windows.
+URL `http://xahlee.info/emacs/emacs/elisp_generate_uuid.html' modified for a simple function.
+Version: 2020-06-04 2023-05-13"
+  (cond
+   ((eq system-type 'windows-nt)
+    (shell-command-to-string "pwsh.exe -Command [guid]::NewGuid().toString()"))
+   ((eq system-type 'darwin) ; Mac
+    (shell-command-to-string "uuidgen"))
+   ((eq system-type 'gnu/linux)
+    (shell-command-to-string "uuidgen"))
+   (t
+    ;; code here by Christopher Wellons, 2011-11-18.
+    ;; and editted Hideki Saito further to generate all valid variants for "N" in xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx format.
+    (let ((xstr (md5 (format "%s%s%s%s%s%s%s%s%s%s"
+                             (user-uid)
+                             (emacs-pid)
+                             (system-name)
+                             (user-full-name)
+                             (current-time)
+                             (emacs-uptime)
+                             (garbage-collect)
+                             (buffer-string)
+                             (random)
+                             (recent-keys)))))
+      (format "%s-%s-4%s-%s%s-%s"
+                      (substring xstr 0 8)
+                      (substring xstr 8 12)
+                      (substring xstr 13 16)
+                      (format "%x" (+ 8 (random 4)))
+                      (substring xstr 17 20)
+                      (substring xstr 20 32))))))
+
+;; http://xahlee.info/emacs/emacs/elisp_read_file_content.html
+(defun get-string-from-file (filePath)
+  "Return file content as string."
+  (with-temp-buffer
+    (insert-file-contents filePath)
+    (buffer-string)))
+(defun read-lines (filePath)
+  "Return a list of lines of a file at filePath."
+  (with-temp-buffer
+    (insert-file-contents filePath)
+    (split-string (buffer-string) "\n" t)))
+
+(defun shizcow/is-url-p (str)
+  "Check if STR is a URL."
+  (string-match-p "\\`https?://\\(?:[a-zA-Z0-9-]+\\.?\\)+\\(?:/.*\\)?\\'" str))
+#+end_src
+
+** Utility Packages
+I don't use ivy much, but it's useful when I do custom user queries.
+#+begin_src elisp
+(use-package ivy)
+#+end_src
 ** init.el
 Emacs requires an ~init.el~ file to get anything done. Luckily for the literacy of this configuration, only a single line is required:
 #+name: init-el-file
 #+begin_src emacs-lisp :tangle no :eval never
-(org-babel-load-file (concat user-emacs-directory "conf.org"))
+(org-babel-load-file (concat (file-name-as-directory user-emacs-directory) "conf.org"))
 #+end_src
 
 The above is in a separate file, while all other elisp snippets in this document are self contained and executed as-such.
 
-Too lazy to copy over this file yourself? =C-c C-c= / execute the following block:
+Too lazy to copy over this file yourself? Click [[elisp:(org-sbe "write-init-el")][this link]] or =C-c C-c= / execute the following block:
 #+name: write-init-el
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (defmacro requote (form) (format "%S" form))
 (if (not (file-exists-p user-emacs-directory)) (make-directory user-emacs-directory))
-(write-region (requote <<init-el-file>>) nil (concat user-emacs-directory "init.el"))
+(write-region (requote <<init-el-file>>) nil (concat (file-name-as-directory user-emacs-directory) "init.el"))
 #+end_src
 
 ** Custom File
@@ -89,7 +182,7 @@ But before any of that, ~package.el~ needs to be loaded in. Without it, we can't
 (require 'package)
 (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
                          ("melpa" . "https://melpa.org/packages/")
-                         ("org" . "http://orgmode.org/elpa/")))
+			 ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 (package-initialize)
 #+end_src
 
@@ -123,15 +216,15 @@ The following is required to get ~:quelpa~ syntax within use-package:
 (require 'quelpa-use-package)
 #+end_src
 
-The following is used to get ~:ensure-system-package~ from ~use-package~:
-#+begin_src emacs-lisp :results silent
+~ensure-system-package~ is now a part of upstream ~use-package~. We only need to:
+#+begin_src elisp
 (use-package use-package-ensure-system-package
   :ensure t)
 #+end_src
 
-*Note:* I don't do any Emacs package development so using ~straight.el~ instead of ~package.el~ is a useless step for me.
-
+The remaining sections of this document include the real Emacs configuration.
 * Visual Configuration
+This section configures global settings related to how Emacs looks and feels.
 ** Default Display Settings
 Simple settings to get rid of things I dislike.
 #+begin_src emacs-lisp
@@ -143,25 +236,30 @@ Simple settings to get rid of things I dislike.
 (global-visual-line-mode 1)
 #+end_src
 
-#+RESULTS:
-: t
-
 ** Theme and Font
 [[https://github.com/kootenpv/emacs-kooten-theme][Kooten]] is a dark Emacs theme with mild colors but high contrast between those colors. It is also red-green colorblind friendly, something I greatly appreciate for self-evident reasons. This addition places it further up on my preference list than other popular dark themes.
 
 My preferred font is [[https://github.com/nathco/Office-Code-Pro][Office Code Pro]]. I just happen to like it.
-#+begin_src emacs-lisp
-(use-package kooten-theme
-  :config
-  (load-theme 'kooten t)
-  (set-face-attribute 'default nil :family "Office Code Pro" :height 110))
+
+Note: I sometimes run Emacs over ssh from a Windows VM. The scaling gets screwed up due to being ran on a different machine, so the below has a simple switch for DPI. I'm sure there is a more robust method to making the font scaling work on different hosts, but I'm yet to figure it out.
+#+begin_src emacs-lisp :results silent
+  (let ((height
+	 (if
+	     (and (getenv "SSH_CLIENT")
+		  (eq 0
+		      (string-match
+		       (dns-query "windowsvm")
+		       (getenv "SSH_CLIENT"))))
+	     210  ; windows (vm)
+	   110))) ; linux   (native)
+    (use-package kooten-theme
+      :config
+      (load-theme 'kooten t)
+      (set-face-attribute 'default nil :family "Office Code Pro" :height height)))
 #+end_src
 
-#+RESULTS:
-: t
-
 ** Rainbow Delimiters
-If you haven't heard of [[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimeters]] I *highly* recommend it. Currently the below turns it on for all programming modes; I have yet to have this cause any problems.
+If you somehow haven't heard of [[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimeters]] I highly recommend it. Currently the below turns it on for all programming modes; I have yet to have this cause any problems.
 #+begin_src emacs-lisp
 (use-package rainbow-delimiters
   :config
@@ -184,7 +282,7 @@ Why do these keybindings even exist?
 #+end_src
 
 ** C-backspace and C-delete
-The default behavior of these two keybindings is to move the removed text into the kill ring. I only find this annoying, so the following does it correctly:
+The default behavior of these two keybindings is to move the removed text into the kill ring. I only find this annoying, so the following corrects this behavior:
 
 #+begin_src emacs-lisp
 (defun delete-word (arg)
@@ -204,7 +302,7 @@ With argument ARG, do this that many times."
 #+end_src
 
 ** Duplicate Line
-I find this keybinding often useful when setting up several similar lines and not wanting to bother with a in-language macro for the short task. The below enables it as ~C-d~ globally. It is also re-overwritten in ~prog-mode~ to ensure it's not overwritten by other keybindings when it matters.
+I find this keybinding often useful when setting up several similar lines and not wanting to bother with a in-language macro for the short task. The below enables it as ~C-d~ globally. This keybinding is overwritten in ~prog-mode~, so extra steps are taken so ensure persistance.
 
 #+begin_src emacs-lisp
 (defun duplicate-line (arg)
@@ -249,7 +347,8 @@ I find this keybinding often useful when setting up several similar lines and no
 #+end_src
 
 ** Revert Buffer
-I use this one somewhat frequently, usually as a workaround for not finishing configuration of other things.
+I use this one somewhat frequently, usually as a workaround for not finishing configuration of other things. This binds =C-c r b= to a function which reverts the current buffer, only confirming if required.
+
 #+begin_src emacs-lisp
 (defun revert-buffer-smart ()
   (if (or (not (buffer-modified-p))
@@ -265,7 +364,43 @@ I use this one somewhat frequently, usually as a workaround for not finishing co
    (revert-buffer-smart)))
 #+end_src
 
+* General Editing
+This section contains small things I use on a global or near-global basis.
+** Count Words
+I use =M-x count-words= a lot. Although I mostly use it in org-mode, sometimes I use it in other places too. Therefore, define a shorter keybinding:
+#+begin_src elisp
+(define-key org-mode-map (kbd "C-c w")
+              'count-words)
+#+end_src
+** Flyspell
+Spellcheck. It's great. It's also included with Emacs (no use-package required!).
+
+Enable globally in org-mode:
+#+name: org-flyspell
+#+begin_src elisp :tangle no
+(add-hook 'org-mode-hook
+          (lambda ()
+            (org-indent-mode)
+            (visual-line-mode)
+            (flyspell-mode)))
+#+end_src
+
+And selectively in programming buffers:
+#+begin_src elisp
+(add-hook 'prog-mode-hook 'flyspell-prog-mode)
+#+end_src
+
+There is this cool [[https://www.emacswiki.org/emacs/FlySpell][flyspell autodetection lisp]] that I may use in the future, but I haven't gotten around to modding it the way that I like yet.
 * Vterm
+[[https://github.com/akermu/emacs-libvterm][Vterm]] is an amazing package and IMO the default choice for an Emacs shell. This section includes its setup and some of the tweaks I have applied to make it more usable.
+
+These tweaks are applied using the [[https://fishshell.com/][fish shell]], my preferred shell.
+
+TODO: There are a few improvements that could be made to this section:
+- Implement these hooks for multiple shells (=sh=, =bash=, and =zsh= as a bare minimum)
+- Enable only if the relevant shells are installed
+- Pass the shell-side configuration as a part of the =vterm-shell= command, that way this is all self-contained within Emacs.
+- Re-order these second, putting the "final" configuration first using noweb stuff. I'd like this to be ordered more intelligently.
 ** Query On Exit
 Normally, whenever emacs kills a vterm buffer, it alerts the user of a running process. This process, of course, is the shell itself. This, in my opinion, is a useless check. However, outright disabling it is trouble. If vterm's shell is actually executing a command, emacs __should__ alert the user.
 
@@ -387,102 +522,705 @@ There are the final configurations done to vterm. They mostly just pass through 
   (push (list "vterm-set-idle"   'vterm-set-idle)   vterm-eval-cmds)
   (push (list "vterm-set-active" 'vterm-set-active) vterm-eval-cmds))
 #+end_src
-
 * Org
-I have yet to dig into org-mode configuring. As such, the bulk of this is taken from [[https://gitlab.com/slondr/emacs-config/-/blob/master/lib/org.el][slondr's org.el]] configuration file.
+** Org-mode
+This section seriously needs to be cleaned up and re-written. It currently has only the bare minimum to make (1) make editing bearable and (2) make org-roam work.
 
-** XeLaTeX and Additional Processing
-XeLaTeX is better than PdfLaTeX by a mile. Set it to the default engine.
+#+name: org-config-header
+#+begin_src emacs-lisp :noweb yes :noweb strip-export
+  (require 'ox-publish)
 
-Also, configure =bibtex= and =sage= to post-process files. While speed isn't really important to me, I don't like redundant exporting. Therefore, this will run a first pass of =xelatex= and only run other things and further passes if required.
+  (use-package org-contrib)
 
-#+begin_src emacs-lisp :results silent
-(setq org-latex-pdf-process
-					; Always need a first pass
-      '("xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f"
-					; bibtex needs some help getting started, so if there is no bibtex file, gen
-					; once generated (second+ pass), could be empty. If they're empty, no need to run:
-        "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b; fi'"
-					; A few things (reference spawning/table of contents/figures/etc) change intermediary files
-					; This requires a re-run or two
-        "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do xelatex -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'"))
+  (use-package org
+    :after org-contrib
+    :pin gnu
+    :init
+    (setq org-support-shift-select t)
+    (setq org-src-fontify-natively t
+	  org-confirm-babel-evaluate nil
+	  org-src-preserve-indentation t)
+    (setq org-list-allow-alphabetical t)
+    <<org-xelatex>>
+    :config
+    <<org-flyspell>>
+    <<ox-headlines>>
+    <<config-org-latex-classes>>
+    <<org-latex-hyper>>
+    :custom
+    <<config-org-mods>>
+    )
+#+end_src
+** Org-related Utility Functions
+Stuff
+
+#+begin_src elisp
+(defun shizcow/get-toplevel-org-property (property)
+  "Check if the current org file has the specified PROPERTY, returning its value or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (org-entry-get nil property)))
+
+(defun shizcow/get-org-title ()
+  "Get the title of the current Org document."
+  (let ((title (org-element-map (org-element-parse-buffer 'element) 'keyword
+                 (lambda (el)
+                   (when (string= (org-element-property :key el) "TITLE")
+                     (org-element-property :value el)))
+                 nil t)))
+    (if title
+        (string-trim title)
+      "No title found")))
+
+(defun shizcow/set-org-title (new-title)
+  "Set the title of the current Org document."
+  (let ((title (org-element-map (org-element-parse-buffer 'element) 'keyword
+                 (lambda (el)
+                   (when (string= (org-element-property :key el) "TITLE")
+                     (org-element-property :value el)))
+                 nil t)))
+    (if title
+        (string-trim title)
+      "No title found")))
+
+(defun shizcow/change-org-buffer-title (new-title)
+  "Change the title of the current Org-mode buffer to NEW-TITLE using org-element-parse-buffer."
+  (interactive "sNew title: ")
+  (let* ((parsed (org-element-parse-buffer))
+         (title (org-element-map parsed 'keyword
+                  (lambda (el)
+                    (when (string= (org-element-property :key el) "TITLE")
+                      el))
+                  nil t)))
+    (if title
+        (progn
+          (goto-char (org-element-property :begin title))
+	  (let* ((pstring (buffer-substring-no-properties
+			  (org-element-property :begin title)
+			  (org-element-property :end title)))
+		(new-title-case (if (string-match "^#\\+\\([^:]+\\):" pstring)
+				    (match-string 1 pstring)
+				  "TITLE")))
+            (delete-region (org-element-property :begin title)
+                           (org-element-property :end title))
+            (insert (format "#+%s: %s\n" new-title-case new-title))))
+      (goto-char (point-min))
+      (insert (format "#+TITLE: %s\n" new-title)))))
 #+end_src
 
-** General Config
-I have yet to understand the vast majority of this:
-#+begin_src emacs-lisp :results silent
-(require 'ox-publish)
+** Visual Configuration
+Small things I use to make org-mode buffers look a little better.
+#+begin_src elisp
+(use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
+#+end_src
+** Citations
+There's a lot that I need to read up on here. https://www.emacswiki.org/emacs/BibTeX has a TON of references for getting good with bibtex.
 
-(use-package org
-  :ensure org-plus-contrib
-  :init
-  (setq org-support-shift-select t)
-  (setq org-src-fontify-natively t
-        org-confirm-babel-evaluate nil
-        org-src-preserve-indentation t)
-  :config
-  (require 'ox-extra)
-  (ox-extras-activate '(ignore-headlines))
+This, eventually, needs to be merged with the transient identifier scheme. Previously all the bibtex stuff was set up here, but it's been moved. For this reason, all the code blocks this section are =:tangle no=.
+
+There are roughly 3 steps to working with citations:
+1) Generating the bibliography
+   This is where papers (and other material) are downloaded and converted into a format that is locally readable and citable. In this system, I use custom Elisp to download papers from [[https://arxiv.org/][arXiv]] and scrape/generate bibtex entries therein.
+2) Text processing
+   Org-roam helps me take notes on these papers. Using =ROAM_REFS=, I can reference a bibtex key to take notes on a paper.
+3) Publishing
+   TBD, but =org-cite= will probably be my go-to method.
+*** Library and Bibliography
+Every paper I read will be downloaded into the =master-library-dir= directory and a bibtex reference generated in =master-library-bibtex=. This is *not* checked in to the same place as org-roam; it's a sister directory. The PDF files themselves are only cahced copies; deleting a file will not change functionality. I personally don't like to scribble annotations on PDFs, so this isn't a huge issue to me.
+
+The structure of the library directory is as follows:
+- =blessed.bibtex=
+- A whole bunch of PDFs
+
+#+begin_src emacs-lisp :results silent :tangle no
+(setq master-library-dir (file-truename "~/smbshare/PhD-library"))
+(unless (file-directory-p master-library-dir) (make-directory master-library-dir))
+(setq master-library-bibtex (concat (file-name-as-directory master-library-dir) "blessed.bib"))
+(unless (file-exists-p master-library-bibtex) (write-region "" nil master-library-bibtex))
+#+end_src
+
+There are a few sources I commonly use: [[https://arxiv.org/][arXiv]] and [[https://dl.acm.org/][ACM]].
+
+**** arXiv
+
+I'm using [[https://github.com/slotthe/arxiv-citation][arXiv-citation]] to do the heavy lifting here. If the paper is published, it will generate the correct bibtex citation and put it into =blessed.bib=. The below elisp sets up the package as well as adds custom extensions to deal with additional sources (eg ACM). The next subsections in this document define the extension initialization functions.
+
+#+begin_src emacs-lisp :results silent :noweb strip-export :tangle no
+(use-package request) ; TODO: make this conditional
+
+<<arxiv-acm-init>>
+<<arxiv-nature-init>>
+<<arxiv-citation-init>>
+
+(use-package arxiv-citation
+  :after request
+  :commands (arxiv-citation-elfeed arxiv-citation-gui)
+  :pin melpa
   :custom
-  (org-latex-listings 'minted)
-  (org-latex-minted-options '(("frame" "lines") ("linenos=true")))
-  (org-latex-packages-alist '(("" "minted")))
-  (org-html-doctype "html5")    ; default to HTML5 output
-  (org-html-html5-fancy t)              ; enable fancy new tags
-  (org-html-postamble nil)              ; disable the postamble
-  (org-html-postamble-format '(("en" "<hr></hr><p class=\"author\">Author: %a</p><p class=\"date\">Date: %d</p>")))
-  (org-html-preamble nil)               ; disable the preamble
-  (org-html-metadata-timestamp-format "%u, %B %e, %Y")
-  (org-preview-latex-process-alist
-   (quote
-    ((dvipng :programs ("lualatex" "dvipng")
-             :description "dvi > png" :message "you need to install the programs: latex and dvipng." :image-input-type "dvi" :image-output-type "png" :image-size-adjust
-             (1.0 . 1.0)
-             :latex-compiler
-             ("lualatex -output-format dvi -interaction nonstopmode -output-directory %o %f")
-             :image-converter
-             ("dvipng -fg %F -bg %B -D %D -T tight -o %O %f"))
-     (dvisvgm :programs ("latex" "dvisvgm")
-              :description "dvi > svg" :message "you need to install the programs: latex and dvisvgm." :use-xcolor t :image-input-type "xdv" :image-output-type "svg" :image-size-adjust
-              (1.7 . 1.5) :latex-compiler
-              ("xelatex -no-pdf -interaction nonstopmode -output-directory %o %f")
-              :image-converter ("dvisvgm %f -n -b min -c %S -o %O"))
-     (imagemagick :programs
-                  ("latex" "convert")
-                  :description "pdf > png" :message "you need to install the programs: latex and imagemagick." :use-xcolor t :image-input-type "pdf" :image-output-type "png" :image-size-adjust
-                  (1.0 . 1.0)
-                  :latex-compiler
-                  ("xelatex -no-pdf -interaction nonstopmode -output-directory %o %f")
-                  :image-converter
-                  ("convert -density %D -trim -antialias %f -quality 100 %O")))))
-  (org-preview-latex-default-process 'dvisvgm)
+  (arxiv-citation-library master-library-dir)
+  (arxiv-citation-bibtex-files (list master-library-bibtex))
   :config
-  (add-hook 'org-mode-hook
-            (lambda ()
-              (org-indent-mode)
-              (visual-line-mode)
-              (flyspell-mode)))
-  (require 'ox-latex)
-  (add-to-list 'org-latex-classes
-               '("apa7"
-                 "\\documentclass{apa7}
+  ;; Load in the hook (see below)
+  (shizcow-init/arxiv-citation-init)
+  (shizcow-init/arxiv-acm-init)
+  (shizcow-init/arxiv-nature-init))
+
+(require 'arxiv-citation)
+#+end_src
+
+One issue with arXiv-citation is that it does not check for duplicate bibtex entries. If you continue to run =arxiv-citation-gui= it will pollute the bibliography files. In order to fix this, =arxiv-citation= must be re-defined (it's not modular in upstream to just define advice).
+
+#+name: arxiv-citation-init
+#+begin_src emacs-lisp :results silent :tangle no
+(defun shizcow-init/arxiv-citation-init ()
+  (require 'arxiv-citation)
+  (require 'bibtex)
+  (defun arxiv-citation-file-maybe (citation file)
+    "Insert a citation into a given file if it is not already there"
+    (when (or (not (file-exists-p file))
+	      (with-temp-buffer
+		(insert-file-contents file)
+		;; It's just easier to use regex to search for the
+		;; key from the citation instead of re-parsing
+		(let ((key-line (car (split-string citation "\n"))))
+		  (string-match "{\\(.*\\),$" key-line)
+		  (not
+		   (bibtex-search-entry (match-string 1 key-line) nil nil nil)))))
+      ;; When appending to the file, the ideal format is to have a single
+      ;; empty line between citations. Doing this requires loading the file
+      ;; contents, trimming the end, then inserting with an extra newline.
+      (with-temp-buffer
+	(insert-file-contents file)
+	(goto-char (point-max))
+	(delete-all-space)
+	(insert (concat "\n\n" citation "\n"))
+	(write-region (point-min) (point-max) file)
+	)))
+  (defun arxiv-citation (url)
+    "Create a citation from the given URL.
+ArXiv and zbmath are supported, as are some additional sources.
+Running `C-h f arxiv-citation-get--citation TAB` will list the currently supported sources.
+Insert the new entry into all files listed in the variable
+`arxiv-citation-bibtex-files'."
+    (interactive)
+    (let ((citation (arxiv-citation-get-citation url)))
+      (dolist (file arxiv-citation-bibtex-files)
+	;; This is where this command deviates from upstream.
+	;; Before entering the citation into the file,
+	;; check if it's already there.
+	(arxiv-citation-file-maybe citation file)))))
+#+end_src
+
+Example of use, can be called interactively:
+#+begin_src elisp :tangle no :noweb yes
+<<arxiv-citation-init>>
+(shizcow-init/arxiv-citation-init)
+(arxiv-citation "https://www.nature.com/articles/s41598-019-46595-w")
+#+end_src
+
+#+RESULTS:
+
+**** TODO ACM
+
+TODO:
+- Auto-generated ACM citations apparently suck and get a lot of details wrong
+- Therefore, we should consider using a separate source (Google Scholar, doitobibtex.org, or some generic doi API) to get these results
+- ACM DL has some wack authentication anyway, so I can't script this without running basically an entire Marionette instance
+
+There's no package for this, so I've written some elisp to add functionality to arXiv-citation. For adding the citations, all that needs done is writing a web-scraper and defining advice for =arxiv-citation-get-citation=. After that, everything magically works.
+
+#+name: arxiv-acm-init
+#+begin_src elisp :tangle no :eval never
+(defun shizcow-init/arxiv-acm-init ()
+  (require 'request)
+  (require 'arxiv-citation)
+
+  (defun doi-from-acm (url)
+    ;; Individual articles are always(?) in the form of:
+    ;; https://dl.acm.org/doi/<DOI>
+    (when (string-match "^https:\\/\\/dl\\.acm\\.org\\/doi\\/.*$" url) (substring url (length "https://dl.acm.org/doi/")))
+    )
+
+  (defun arxiv-citation-get-acm-citation (url)
+    "Obtain an ACM citation from URL."
+    ;; ACM has a helpful endpoint for getting a citation:
+    ;; URL: https://dl.acm.org/action/exportCiteProcCitation
+    ;; Method: POST
+    ;; Data: {"dois": <DOI-from-URL>, "targetFile": "custom-bibtex", "format": "bibtex"}
+
+    ;; ACM has a mangled JS function at https://dl.acm.org/templates/jsp/_ux3/_acm/citeproc.min.js
+    ;; This is complete but also WAY bigger. What's here is a fraction of the total.
+
+    (let* ((doi (doi-from-acm url))
+	   (response
+	    (request-response-data
+	     (request "https://dl.acm.org/action/exportCiteProcCitation"
+	       :type "POST"
+	       :data (list (cons "dois" doi) (cons "targetFile" "custom-bibtex") (cons "format" "bibtex"))
+	       :headers '(("Cookie" . "JSESSIONID=71008ff3-1c1c-4405-85bd-5aa7c4600bff; MAID=d4f4CHOi0fN8Wj9W4iuaOA==; MACHINE_LAST_SEEN=2023-09-08T10%3A20%3A45.712-07%3A00; I2KBRCK=1; __cf_bm=CXqq08xpNGRSOP2CyUx8y5AIVpJ_A0B8UJpXlbjTPbM-1694193645-0-AbKB843AjWYG5xO5Pt45A+VSm8ybbY9HIc/i2cD3LxZZghtTY06fEoz2j7kKs8YS5e5xj2VNyPIKrDcINMLplcw=;CookieConsent={stamp:%27h7l3zW7WEN8XlLkuot6Kpzys4fiowuzZ3U7cFza+GqVXxrHIpEdHew==%27%2Cnecessary:true%2Cpreferences:false%2Cstatistics:false%2Cmarketing:false%2Cmethod:%27explicit%27%2Cver:1%2Cutc:1694193682994%2Cregion:%27us%27}")
+			  ("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/117.0")
+			  ("Accept" . "*/*")
+			  ("Accept-Language" . "en-US,en;q=0.5")
+			  ("Accept-Encoding" . "gzip, deflate, br"))
+	       :sync t
+	       :parser 'json-read
+	       :error
+	       (cl-function (lambda (&rest args &key response &allow-other-keys)
+			      (user-error "Got error %S from %S" (request-response-error-thrown response) (request-response-url response))
+			      ))
+	       )))
+	   (data (cdr (car (aref (alist-get 'items response) 0) )))
+	   (authors_ (mapconcat (lambda (pair) (concat (alist-get 'family pair) ", " (alist-get 'given pair)))
+				(cdr (cl-find-if (lambda (x) (string-equal (car x) "author")) data))
+				" and "))
+	   (year (aref (aref (alist-get 'date-parts (cdr (cl-find-if (lambda (x) (string-equal (car x) "issued")) data))) 0) 0))
+	   (month (aref (aref (alist-get 'date-parts (cdr (cl-find-if (lambda (x) (string-equal (car x) "issued")) data))) 0) 1))
+	   (title (cdr (cl-find-if (lambda (x) (string-equal (car x) "title")) data)))
+	   (DOI (cdr (cl-find-if (lambda (x) (string-equal (car x) "DOI")) data)))
+	   (keyword (cdr (cl-find-if (lambda (x) (string-equal (car x) "keyword")) data)))
+	   (acm-type (cdr (cl-find-if (lambda (x) (string-equal (car x) "type")) data)))
+	   (acm-key (cond
+		     ((string-equal acm-type "PAPER_CONFERENCE") "inproceedings")
+		     ((string-equal acm-type "ARTICLE") "article")
+		     (t (user-error (concat "Unknown article type \"" acm-type "\" needed in arxiv-citation-get-acm-citation")))
+		     ))
+	   (abstract (cdr (cl-find-if (lambda (x) (string-equal (car x) "abstract")) data)))
+	   ;; the below are all nullable
+	   (isbn (cdr (cl-find-if (lambda (x) (string-equal (car x) "ISBN")) data)))
+	   (issn (cdr (cl-find-if (lambda (x) (string-equal (car x) "ISSN")) data)))
+	   (container-title (cdr (cl-find-if (lambda (x) (string-equal (car x) "container-title")) data)))
+	   (numpages (let ((numpages (cdr (cl-find-if (lambda (x) (string-equal (car x) "numpages")) data)))
+			   (number-pages (cdr (cl-find-if (lambda (x) (string-equal (car x) "number-of-pages")) data))))
+		       (if numpages numpages number-pages)))
+	   (page (cdr (cl-find-if (lambda (x) (string-equal (car x) "page")) data)))
+	   (publisher (cdr (cl-find-if (lambda (x) (string-equal (car x) "publisher")) data)))
+	   (address (cdr (cl-find-if (lambda (x) (string-equal (car x) "publisher-place")) data)))
+	   (articleno (cdr (cl-find-if (lambda (x) (string-equal (car x) "collection-number")) data)))
+	   (issue (cdr (cl-find-if (lambda (x) (string-equal (car x) "issue")) data)))
+	   (number (cdr (cl-find-if (lambda (x) (string-equal (car x) "number")) data)))
+	   (volume (cdr (cl-find-if (lambda (x) (string-equal (car x) "volume")) data)))
+	   ;; for debug:
+	   ;; (remaining-json (cl-remove-if (lambda (x) (cl-find-if (lambda (y) (string-equal (car x) y)) '("author" "id" "type" "accessed" "issued" "original-date" "call-number" "event-place" "DOI" "keyword" "title" "URL" "abstract" "collection-number" "container-title" "ISBN" "collection-title" "ISSN" "issue" "number" "number-of-pages" "page" "publisher" "publisher-place" "source" "volume"))) data))
+	   )
+
+      (cl-flet ((mk-citation (key)
+                  (concat (concat "@" acm-key "{") (or key "") ",\n"
+                          " author        = {" authors_ "},\n"
+                          " year          = {" (number-to-string year) "},\n"
+                          " month         = {" (number-to-string month) "},\n"
+                          " title         = {" title "},\n"
+                          " doi           = {" DOI "},\n"
+                          " keywords      = {" keyword "},\n"
+                          " abstract      = {" abstract "},\n"
+                          " url           = {" url "},\n"
+			  (when isbn
+			    (concat " isbn          = {" isbn "},\n"))
+			  (when issn
+			    (concat " issn          = {" issn "},\n"))
+			  (when container-title
+			    (concat " booktitle     = {" container-title "},\n"))
+			  (when numpages
+			    (concat " numpages      = {" numpages "},\n"))
+			  (when page
+			    (concat " pages         = {" page "},\n"))
+			  (when publisher
+			    (concat " publisher     = {" publisher "},\n"))
+			  (when address
+			    (concat " address       = {" address "},\n"))
+			  (when articleno
+			    (concat " articleno     = {" articleno "},\n"))
+			  (when issue
+			    (concat " number        = {" issue "},\n"))
+			  (when volume
+			    (concat " volume        = {" volume "},\n"))
+                          "}")))
+	(mk-citation (with-temp-buffer
+                       (insert (mk-citation nil))
+                       (arxiv-citation-generate-autokey))))
+      
+      ))
+
+  (advice-add 'arxiv-citation-get-citation :around
+	      (lambda (origfun &rest r)
+		(if (doi-from-acm (car r)) (apply 'arxiv-citation-get-acm-citation r) (apply origfun r))
+		))
+  )
+#+end_src
+
+An example which can also be called interactively:
+#+begin_src emacs-lisp :tangle no :noweb yes
+<<arxiv-acm-init>>
+(shizcow-init/arxiv-acm-init)
+(arxiv-citation-get-acm-citation "https://dl.acm.org/doi/10.1145/192724.192731")
+#+end_src
+
+#+RESULTS:
+: 10.1145/192724.192731
+
+**** Nature
+Similar to ACM, there is no package with clean integration to gather bibtex entries from [[https://www.nature.com/srep/][the journal Nature's website]] (not necessarily Nature itself).
+
+#+name: arxiv-nature-init
+#+begin_src elisp :tangle no :eval never
+(defun shizcow-init/arxiv-nature-init ()
+  (require 'request)
+  (require 'arxiv-citation)
+
+  (defun doi-from-nature (url)
+    ;; DOI information is NOT encoded in the URL
+    ;; Performing a GET request will return a web page containing the meta tag:
+    ;;   <meta name="DOI" content="<DOI>"/>
+    (when (string-match "^https:\\/\\/www\\.nature\\.com\\/articles\\/.*$" url)
+      ;; Do query
+      (let* ((response
+	      (request-response-data
+	       (request url
+		 :type "GET"
+		 :sync t
+		 ;; Parsing the actual HTML:
+		 :parser (lambda () (libxml-parse-html-region (point) (point-max)))
+		 ))))
+	(dom-attr
+	 (cl-find-if
+	  (lambda (meta-node)
+	    ;; Case insensitive match
+	    (cl-equalp "DOI" (dom-attr meta-node 'name))
+	    )
+	  (dom-by-tag response 'meta))
+	 'content))))
+
+  
+  (defun arxiv-citation-get-nature-citation (url)
+    "Obtain a citation from an article on the journal Nature"
+    ;; Nature has a helpful endpoint for getting a citation:
+    ;; URL: https://citation-needed.springer.com/v2/references/<DOI>?format=refman&flavour=citation
+    ;; METHOD: GET
+
+    (let* ((doi (doi-from-nature url))
+	   (api-url (concat "https://citation-needed.springer.com/v2/references/" doi))
+	   (response
+	    (request-response-data
+	     (request api-url
+	       :type "GET"
+	       :data '(("format" . "refman") ("flavour" . "citation"))
+	       :sync t
+	       :parser 'buffer-string
+	       )))
+	   (cite-keys
+	    ;; The response is in the format:
+	    ;; <KEY>   - <VAL>
+	    ;; Where each line has one entry and there can be duplicate entries
+	    ;; A list of key meanings:
+	    ;; TY: Type; "JOUR" for journal
+	    ;; AU: Author; Possibly duplicates
+	    ;; PY: Print Year
+	    ;; DA: Date in YY/MM/DD format
+	    ;; TI: Title
+	    ;; JO: Journal name
+	    ;; SP: Article number
+	    ;; VL: Volums
+	    ;; IS: Issue
+	    ;; AB: Abstract
+	    ;; SN: ISSN
+	    ;; UR: URL
+	    ;; DO: DOI
+	    ;; ID: Bibtex citation ID -- discarded due to over-simplification
+	    ;; Parse the response into tuples for later consumption
+	    (remq nil 
+		  (mapcar
+		   (lambda (response-line)
+		     ;; Split on the (first) '-' character
+		     (let ((dash-location
+			    (cl-position ?- response-line :test 'char-equal)))
+		       (when dash-location
+			 (list
+			  (string-trim (substring response-line 0 dash-location))
+			  (string-trim (substring response-line (+ 1 dash-location)))))))
+		   (split-string response "\n"))))
+	   (authors_ (mapconcat (lambda (tuple) (nth 1 tuple))
+				(cl-remove-if-not (lambda (tuple) (string-equal "AU" (car tuple))) cite-keys)
+				" and "))
+	   (YMD-string (nth 1 (cl-find-if (lambda (tuple) (string-equal "DA" (car tuple))) cite-keys)))
+	   (year  (progn
+		    (string-match "\\([0-9][0-9][0-9][0-9]\\)/\\([0-9][0-9]\\)/\\([0-9][0-9]\\)" YMD-string)
+		    (match-string 1 YMD-string)
+		    ))
+	   (month (match-string 2 YMD-string))
+	   (day   (match-string 2 YMD-string))
+	   (title (nth 1 (cl-find-if (lambda (tuple) (string-equal "TI" (car tuple))) cite-keys)))
+	   (DOI (nth 1 (cl-find-if (lambda (tuple) (string-equal "DO" (car tuple))) cite-keys)))
+	   (nature-type (nth 1 (cl-find-if (lambda (tuple) (string-equal "TY" (car tuple))) cite-keys)))
+	   (nature-key (cond
+			((string-equal nature-type "JOUR") "article")
+			(t (user-error (concat "Unknown article type \"" nature-type "\" needed in arxiv-citation-get-nature-citation")))
+			))
+	   (abstract (nth 1 (cl-find-if (lambda (tuple) (string-equal "AB" (car tuple))) cite-keys)))
+	   (cite-url (nth 1 (cl-find-if (lambda (tuple) (string-equal "UR" (car tuple))) cite-keys)))
+	   (cite-doi (nth 1 (cl-find-if (lambda (tuple) (string-equal "DO" (car tuple))) cite-keys)))
+	   ;; The below are all nullable
+	   (issn (nth 1 (cl-find-if (lambda (tuple) (string-equal "SN" (car tuple))) cite-keys)))
+	   (container-title (nth 1 (cl-find-if (lambda (tuple) (string-equal "JO" (car tuple))) cite-keys)))
+	   (number (nth 1 (cl-find-if (lambda (tuple) (string-equal "SP" (car tuple))) cite-keys)))
+	   (volume (nth 1 (cl-find-if (lambda (tuple) (string-equal "VL" (car tuple))) cite-keys))))
+      (cl-flet ((mk-citation (key)
+                  (concat (concat "@" nature-key "{") (or key "") ",\n"
+                          " author        = {" authors_ "},\n"
+                          " year          = {" year "},\n"
+                          " month         = {" month "},\n"
+                          " day           = {" day "},\n"
+                          " title         = {" title "},\n"
+                          " doi           = {" cite-doi "},\n"
+                          " abstract      = {" abstract "},\n"
+                          " url           = {" cite-url "},\n"
+			  (when issn
+			    (concat " issn          = {" issn "},\n"))
+			  (when container-title
+			    (concat " journal       = {" container-title "},\n"))
+			  (when number
+			    (concat " number        = {" number "},\n"))
+			  (when volume
+			    (concat " volume        = {" volume "},\n"))
+                          "}")))
+	(mk-citation (with-temp-buffer
+                       (insert (mk-citation nil))
+                       (arxiv-citation-generate-autokey))))
+      ))
+
+  (advice-add 'arxiv-citation-get-citation :around
+	      (lambda (origfun &rest r)
+		(if (doi-from-nature (car r)) (apply 'arxiv-citation-get-nature-citation r) (apply origfun r))
+		))
+  )
+#+end_src
+
+#+begin_src elisp :noweb yes :tangle no
+<<arxiv-nature-init>>
+(shizcow-init/arxiv-nature-init)
+(arxiv-citation-get-citation "https://www.nature.com/articles/s41598-019-46595-w")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+@article{chen19:adiab-quant-flux-param,
+ author        = {Chen, Olivia and Cai, Ruizhe and Wang, Yanzhi and Ke, Fei and Yamae, Taiki and Saito, Ro and Takeuchi, Naoki and Yoshikawa, Nobuyuki},
+ year          = {2019},
+ month         = {07},
+ day           = {07},
+ title         = {Adiabatic Quantum-Flux-Parametron: Towards Building Extremely Energy-Efficient Circuits and Systems},
+ doi           = {10.1038/s41598-019-46595-w},
+ abstract      = {Adiabatic Quantum-Flux-Parametron (AQFP) logic is an adiabatic superconductor logic family that has been proposed as a future technology towards building extremely energy-efficient computing systems. In AQFP logic, dynamic energy dissipation can be drastically reduced due to the adiabatic switching operations using AC excitation currents, which serve as both clock signals and power supplies. As a result, AQFP could overcome the power/energy dissipation limitation in conventional superconductor logic families such as rapid-single-flux-quantum (RSFQ). Simulation and experimental results show that AQFP logic can achieve an energy-delay-product (EDP) near quantum limit using practical circuit parameters and available fabrication processes. To shed some light on the design automation and guidelines of AQFP circuits, in this paper we present an automatic synthesis framework for AQFP and perform synthesis on 18 circuits, including 11 ISCAS-85 circuit benchmarks, 6 deep-learning accelerator components, and a 32-bit RISC-V ALU, based on our developed standard cell library of AQFP technology. Synthesis results demonstrate the significant advantage of AQFP technology. We forecast 9,313×, 25,242× and 48,466× energy-per-operation advantage, compared to the synthesis results of TSMC (Taiwan Semiconductor Manufacturing Company) 12 nm fin field-effect transistor (FinFET), 28 nm and 40 nm complementary metal-oxide-semiconductor (CMOS) technology nodes, respectively.},
+ url           = {https://doi.org/10.1038/s41598-019-46595-w},
+ issn          = {2045-2322},
+ journal       = {Scientific Reports},
+ number        = {10514},
+ volume        = {9},
+}
+#+end_example
+
+**** TODO Fallback
+TODO:
+- If none of the above options match a URL, prompt to fill out a bibtex entry manually. This should be done in a transient buffer (with the correct major mode set) before validation. Consider using the pre-packaged "generate a unique key name for this entry" function that's also used in [[Nature]].
+
+**** TODO Elfeed
+TODO: set up elfeed+zathura and then add the download steps
+*** Searching for Citations
+Org-roam supports a citation as the reference property. [[https://github.com/emacs-citar/citar-org-roam][citar-org-roam]] is a new package which sets up very tight integration with =org-cite= and =org-roam=.
+
+#+begin_src elisp :tangle no
+(setq org-cite-global-bibliography (list master-library-bibtex))
+(use-package citar
+  :after embark vertico
+  :custom
+  (citar-bibliography org-cite-global-bibliography)
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar)
+  :bind
+  (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+  :config
+  (defun org-cite-wrap-vertico (origfun &rest r)
+    (vertico-mode 1)
+    (unwind-protect
+	(apply origfun r)
+      (vertico-mode -1)))
+  (advice-add 'citar-select-refs :around 'org-cite-wrap-vertico)
+  (advice-add 'citar-get-notes :around 'org-cite-wrap-vertico)
+  (advice-add 'citar--select-resource :around 'org-cite-wrap-vertico)
+  )
+
+(use-package embark)
+(use-package vertico)
+
+(use-package citar-embark
+  :after citar embark
+  :no-require
+  :config (citar-embark-mode))
+
+(use-package citar-org-roam
+  :after (citar org-roam)
+  :config
+  (setq citar-org-roam-note-title-template "Paper: ${title} - ${author}")
+  (setq citar-org-roam-capture-template-key "r")
+  (citar-org-roam-mode))
+#+end_src
+
+#+RESULTS:
+: t
+
+And a quick function to bind this to arXiv-citation:
+#+begin_src elisp
+(defun citar-note-from-arxiv (url)
+  "Open a (possibly new) org-ref note from an arxiv link, creating a citation in the process"
+  (interactive "sURL: ")
+  ;; This is a copy-paste from arxiv-citation
+  ;; I just don't want to do a REST request twice
+  (let ((citation (arxiv-citation-get-citation url)))
+    (dolist (file arxiv-citation-bibtex-files)
+      (arxiv-citation-file-maybe citation file))
+    (let* ((key
+	    (with-temp-buffer
+	      (insert citation)
+	      (arxiv-citation-generate-autokey)))
+	   (note-str (gethash key (citar-get-notes key))))
+      (if note-str
+	  (citar-open-note (substring-no-properties (car note-str)))
+	(citar-create-note key))
+      ))
+  )
+
+(defun citar-note-from-arxiv-gui ()
+  "Open a (possibly new) org-ref note from an arxiv link, creating a citation in the process.
+This function operates on the primary selection (clipboard or X11 selection)."
+  (interactive)
+  (let ((primary (gui-get-primary-selection))
+        (clipboard (gui-get-selection 'CLIPBOARD)))
+    (cond ((s-prefix? "http" primary)   (citar-note-from-arxiv primary))
+          ((s-prefix? "http" clipboard) (citar-note-from-arxiv clipboard))))
+  )
+#+end_src
+
+#+RESULTS:
+: citar-note-from-arxiv-gui
+
+*** TODO Opening PDFs
+ TODO: not sure if this is possible but here is an idea:
+ 1) Click drag a link from firefox to emacs
+ 2) Intercept the eww intake call to re-direct to citar-note-from-arxiv
+ 3) Download the PDF
+ 4) Once those are both finished, open a split-pane setup with the org-roam page on the left and the PDF open on the right
+
+Also TODO: modify the template. Add a button/link to the PDF file.
+Also TODO: modify template to have the authors in the subtitle
+Also TODO: modify template to have a link to the doi.org (which will re-direct to the publisher)
+Also TODO: [[https://www.orgroam.com/manual.html#Citations][org-roam-protocol]] is COOL
+
+** Babel
+TODO: comment this and such, noweb it into a better location, etc etc etc
+#+begin_src emacs-lisp :results silent
+(org-babel-do-load-languages 'org-babel-load-languages '((shell . t)))
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((matlab . t) (python . t) (C . t)))
+#+end_src
+** Export/Publish
+*** General
+This subsection includes configuration that changes the behavior of org-mode via external packages. For cofiguration that changes the behavior of org-mode by patching org-mode source, see the [[Org Mods]] section.
+**** Ignore Headlines
+This neat little extra allows one to put =:ignore:= after a headline in a org-mode buffer to have it not export. Note that this skips exporting of /just/ the headline -- not the /contents/ of the headline.
+
+This should be used if a custom headline / section header is included. For example, the =\abstract= command in Latex+IEEEtran will create the =Abstract= heading. In this case =:ignore:= should be used on the containing org-headline. This allows one to preserve organization of an org-mode buffer via headlines while allowing the option to cut headline exports.
+
+#+name: ox-headlines
+#+begin_src elisp :tangle no
+(require 'ox-extra)
+(ox-extras-activate '(ignore-headlines))
+#+end_src
+*** Latex
+Over the years, I've collected some Latex configuration bits / shorthands that are useful to include in my Emacs configuration.
+**** Source Code
+Since a recent Emacs version, source code export is no longer defaulted to minted. So, set that:
+#+begin_src elisp
+(require 'ox-latex)
+(setq org-latex-src-block-backend 'minted)
+(setq org-latex-listings 'minted)
+(add-to-list 'org-latex-packages-alist '("newfloat" "minted"))
+;; ("/usr/share/texmf-dist/tex/latex/fvextra/fvextra.sty" . texlive-fvextra)
+#+end_src
+
+**** XeLaTeX
+XeLaTeX is better than PdfLaTeX by a mile. Set it to the default engine if it is available.
+
+Also, configure =bibtex= and =sage= to post-process files. While speed isn’t really important to me, I don’t like redundant exporting. Therefore, this will run a first pass of xelatex and only run other things and further passes if required.
+
+Note: All of this is done if the relevant programs are available on the host.
+
+#+name: org-xelatex
+#+begin_src elisp :tangle no
+(setq org-latex-pdf-process
+      (let ((tex-processor
+	    (if (executable-find "xelatex")
+		"xelatex"
+	      ;; While XeLaTeX is prefered, it isn't always available. Use PdfLaTeX (the more widely avaialble alternative) if needed.
+	      ;; If PdfLaTeX also isn't available, then the host system doesn't have TeXlive. This will throw an easy to debug error during Latex export.
+	      "pdflatex"
+	      )))
+	(remove nil 
+		(list
+		 (concat tex-processor " -8bit -shell-escape -interaction nonstopmode -output-directory %o %f")
+		 (when (executable-find "bibtex")
+		   ;; bibtex needs some help getting started, so if there is no bibtex file, gen
+		   ;; once generated (second+ pass), could be empty. If they're empty, no need to run:
+		   "sh -c 'if [ ! -f %b.bbl -o -s %b.bbl ] ;then bibtex %b; fi'")
+		 ;; A few things (reference spawning/table of contents/figures/etc, sage) change intermediary files
+		 ;; This requires a re-run or two. This just keeps going until there are no more re-runs required
+		 ;; It references the log file, so only the minimum number of runs are ever required
+		 (concat "sh -c 'while grep -q -e \"File \\`%b.out\\' has changed\" -e \"Rerun to get cross-references right\" %b.log; do " tex-processor " -8bit -shell-escape -interaction nonstopmode -output-directory %o %f ;done'")))))
+#+end_src
+**** Classes
+This subsection outlines a few =org-latex-classes= that I find useful. They are loaded into the =use-package org= call under =:config=
+#+name: config-org-latex-classes
+#+begin_src elisp :export no :noweb yes :tangle no
+(require 'ox-latex)
+<<org-latex-apa7>>
+<<org-latex-ieee>>
+<<org-latex-manual>>
+<<org-latex-memo>>
+#+end_src
+***** APA7
+The =apa7= latex class and citation setup.
+#+name: org-latex-apa7
+#+begin_src elisp :tangle no
+(add-to-list 'org-latex-classes
+             '("apa7"
+               "\\documentclass{apa7}
 \\usepackage{natbib}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
-                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
-  (add-to-list 'org-latex-classes
-               '("IEEE"
-                 "\\documentclass{IEEEtran}
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+#+end_src
+***** IEEE
+An IEEE two-column format paper and citation setup.
+#+name: org-latex-ieee
+#+begin_src elisp :tangle no
+(add-to-list 'org-latex-classes
+             '("IEEE"
+               "\\documentclass{IEEEtran}
 \\usepackage{cite}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-                 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
-  (add-to-list 'org-latex-classes
-               '("manual"
-                 "\\documentclass{memoir}
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")))
+#+end_src
+***** Manual
+A bit of a "how to" guide. I initially wrote this template for a course, but it eventually morphed into something that I actually use somewhat frequently.
+#+name: org-latex-manual
+#+begin_src elisp :tangle no
+(add-to-list 'org-latex-classes
+             '("manual"
+               "\\documentclass{memoir}
 \\usepackage{natbib}
 \\openany
 \\usepackage{etoolbox}
@@ -509,13 +1247,18 @@ I have yet to understand the vast majority of this:
 \\makeatother
 \\headstyles{memman}
 \\chapterstyle{demo3}"
-                 ("\\chapter{%s}" . "\\chapter*{%s}")
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
-  (add-to-list 'org-latex-classes
-               '("memo"
-                 "\\documentclass[12pt]{article}
+               ("\\chapter{%s}" . "\\chapter*{%s}")
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+#+end_src
+***** Memo
+For any type of letter/correspondance, this is a bit cleaner than the default setup.
+#+name: org-latex-memo
+#+begin_src elisp :tangle no
+(add-to-list 'org-latex-classes
+             '("memo"
+               "\\documentclass[12pt]{article}
 \\usepackage{natbib}
 \\makeatletter
 \\renewcommand\\section{\\@startsection {section}{1}{\\z@}
@@ -531,10 +1274,18 @@ I have yet to understand the vast majority of this:
                                    {0.167ex \\@plus.02ex}
                                    {\\normalfont\\normalsize\\textit}}
 \\makeatother"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
-  (customize-set-value 'org-latex-hyperref-template "\\hypersetup{
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+#+end_src
+**** Hyperlinks
+By default, the package that org-mode uses to highlight hyperlinks in text produces a colored box around each link.
+Personally, I don't think this looks very good; I prefer a simple colored underline.
+The following elisp sets up underlined-links as the default behavior:
+#+name: org-latex-hyper
+#+begin_src elisp :tangle no
+(require 'ox-latex)
+(customize-set-value 'org-latex-hyperref-template "\\hypersetup{
  pdfauthor={%a},
  pdftitle={%t},
  pdfkeywords={%k},
@@ -542,26 +1293,33 @@ I have yet to understand the vast majority of this:
  pdfcreator={%c}, 
  pdflang={%L},
 pdflinkmargin=1pt,
-pdfborderstyle={/S/U/W 1}}\n"))
+pdfborderstyle={/S/U/W 1}}\n")
 #+end_src
-
-** TODO Word Count
-When writing academic papers, word counts are often required.
-A great way to deal with these is =org-wc=.
-
-#+begin_src elisp :results silent
-(use-package org-wc
+*** Not Latex
+Org-mode isn't always used to export to Latex. This section contains my configuration for exporting org-mode buffers to other formats.
+**** Reveal
+#+begin_src elisp
+(use-package ox-reveal
   :after org
-  )
+  :ensure t ; ree
+  ;; Use the CDN for rendering instead of local (IDK why the docs recommend local)
+  :custom (org-reveal-root "https://cdn.jsdelivr.net/npm/reveal.js"))
 #+end_src
+** Org Mods
+This subsection includes modifications and additions to the org syntax, such as new properties and commands.
 
-** Latex Header
-Using =#+latex_header= can get really annoying when using multiple lines.
-The following sets up the =#+begin_src latex-header= environment which will automatically prepend every line with =#+latex_header:= on export.
+#+name: config-org-mods
+#+begin_src elisp :export no :noweb yes :tangle no
+<<org-mod-latex-header>>
+<<org-mod-only-export>>
+#+end_src
+*** Latex Header
+Using =#+latex_header= can get really annoying when using multiple lines. The following sets up the =#+begin_src= latex-header environment which will automatically prepend every line with =#+latex_header=: on export.
 
 This also yields the typical benefits from org =src= blocks, such as noweb syntax.
 
-#+begin_src elisp :results silent
+#+name: org-mod-latex-header
+#+begin_src elisp :tangle no
 (require 'ob)
 (require 'ob-latex)
 
@@ -582,13 +1340,15 @@ This also yields the typical benefits from org =src= blocks, such as noweb synta
 
 (provide 'ob-latex-header)
 #+end_src
-
+*** Eval only-export
+When writing a source block in org-mode, one can tag it with the =:eval= attribute to specify when code is allowed to be ran.
 The following adds a =:eval only-export= attribute option to code blocks.
-It is used with the above to ensure that =latex-header= blocks cannot accidentally inject results into the working =.org= buffer.
+In addition to being generally useful, it is used by the above =#+latex_header= to ensure that latex-header blocks cannot accidentally inject results into the working =.org= buffer.
 
-This is a direct patch from =ob-core.el=.
+This is a direct patch from ob-core.el.
 
-#+begin_src emacs-lisp :results silent
+#+name: org-mod-only-export
+#+begin_src elisp :tangle no
 (defun org-babel-check-confirm-evaluate (info)
   "Check whether INFO allows code block evaluation.
 
@@ -616,22 +1376,59 @@ should be asked whether to allow evaluation."
      (query 'query)
      (t t))))
 #+end_src
+*** Blah
+Idea: Make [blah:some text] be a custom command in org-mode. I'd like it to (1) be highlighted as red in the org buffer and (2) produce text which is highlighted as red /regardless of the export method/. If an export method is not defined for =blah= when one is encountered, throw an error during export. Also, define some =M-x blah= that takes the input phrase and formats it correctly. Make sure that is only defined within org-mode.
+
+=org-cite-process-citations= shows how to do the find and replace according to different exporters. That is used in =org-export-as= to do all of the find-and-replace. It would probably be a good idea to define advice around =org-cite-process-citations= to get this to activate in the right place.
+
+#+begin_src elisp
+(defun shizcow/org-process-blah (info &rest r)
+  (message "Hello from export! I'll have [blah:stuff] working soon!")
+  )
+
+(advice-add 'org-cite-process-citations :after
+	    'shizcow/org-process-blah)
+#+end_src
+
+#+RESULTS:
 
 ** Sage
 Sagemath is a Python-derived language which allows for high-level symbolic calculation.
 =ob-sagemath= is a package that allows integration with org-mode.
-The following elisp sets up =ob-sagemath=
+When writing anything that needs latex math-mode typesetting, it is generally preferred to use sage due to (1) its automatic typesetting from a more abstract representation and (2) the ability to evaluate the input.
 
-#+begin_src elisp :results silent
-(use-package sage-shell-mode)
-(use-package ob-sagemath
-  :after org
-  :after sage-shell-mode
-  :config
-  ;; Ob-sagemath supports only evaluating with a session.
-  (setq org-babel-default-header-args:sage '((:session . t)
-                                             (:results . "output"))))
+The following elisp sets up =ob-sagemath=:
+
+#+begin_src elisp
+(when (executable-find "sage")
+  (use-package sage-shell-mode)
+  (use-package ob-sagemath
+    :after org
+    :after sage-shell-mode
+    :config
+    ;; Ob-sagemath supports only evaluating with a session.
+    (setq org-babel-default-header-args:sage '((:session . t)
+                                               (:results . "output")))
+    ;; And set up integration with ox-latex
+    (add-to-list 'org-latex-listings-langs '(sage "python")) ; python-style highlighting
+    (add-to-list 'org-latex-minted-langs '(sage "python")) ; python-style highlighting
+    ))
 #+end_src
+
+#+RESULTS:
+: t
+
+Where an example of use is:
+#+begin_src sage :tangle no
+var('x,y')
+f1 = x == y + 1
+f2 = 2 * y == x
+solve([f1, f2], x, y)
+#+end_src
+
+#+RESULTS:
+: (x, y)
+: [[x == 2, y == 1]]
 
 *** Example
 The following is an example of placing sage text into an org-mode document with all the bells and whistles.
@@ -640,193 +1437,1750 @@ This example shows how to invisibly typeset the output of a sage variable to lat
 First, write some sage code.
 This code is not executed directly; instead it is noweb'd in by another block that also typesets =r= into latex.
 
-
-#+caption: Sample sage code label:code-sage-sample
-#+name: sage-1
-#+BEGIN_SRC sage :exports code :eval never
+#+begin_src org :tangle no
+,#+caption: Sample sage code label:code-sage-sample
+,#+name: sage-1
+,#+BEGIN_SRC sage :exports code :eval never
 # This calculation is just an example
 r=integral(x,x,1,2)
-#+END_SRC
+,#+END_SRC
 
 # The following block is the one that executes. ":wrap equation" is particularly important
 
-#+name: sage-1-noweb
-#+BEGIN_SRC sage :session foo :cache yes :exports results :results raw :wrap equation :noweb yes
+,#+name: sage-1-noweb
+,#+BEGIN_SRC sage :session foo :cache yes :exports results :results raw :wrap equation :noweb yes
 <<sage-1>>
 latex(r)
-#+END_SRC
+,#+END_SRC
+#+end_src
 
 Executing the code above yields:
 
-#+caption: label:eq-sage-sample
-#+RESULTS[00a7b412a37687766457e36b31be031affb7bc8c]: sage-1-noweb
-#+begin_equation
+#+begin_src org :tangle no
+,#+caption: label:eq-sage-sample
+,#+RESULTS[00a7b412a37687766457e36b31be031affb7bc8c]: sage-1-noweb
+,#+begin_equation
 \frac{3}{2}
-#+end_equation
+,#+end_equation
+#+end_src
 
 This also allows integration with org-ref via the label attribute. See [Eq. ref:eq-sage-sample] for the contents of =r= after the code in [Lst. ref:code-sage-sample] is ran.
 
 *Note:* spawning a sage session is slow, but =ob-sagemath= re-uses sessions intelligently. Therefore, cache is not required.
-** GLSL
-Shaders are really cool, and shaders in org-mode are even cooler.
+
+* Papers, Downloading and Citations
+I read papers. I need a way to download and cite them in some universal format.
+This section defines utilities that will be used in future sections.
+
+With this scheme, bibtex entries can be generated on the fly given a doi.
+There are already packages that do that, but my methods add additional support and also handle downloading files.
+
+** Utility
+General utility functions for dealing with papers
+** DOI
+The following function will extract a DOI from a non-DOI address.
+This is an [[https://www.crossref.org/blog/urls-and-dois-a-complicated-relationship/][impossible task]], but we can make it work for certain classes of URLs by defining specific functions that work on classes of URLs.
+
+The important functions defined here are =shizcow/try-doi-from=, which returns a DOI from a URL, and =shizcow/add-doi-scraper= which allows for writing another specific DOI parser.
+
+This would be called as:
+#+begin_src elisp :tangle no
+(shizcow/try-doi-from "https://ieeexplore.ieee.org/document/1234567")
+(shizcow/try-doi-from "https://dl.acm.org/doi/10.1145/3650212.3680307")
+#+end_src
+
+#+RESULTS:
+: https://doi.org/10.1145/3650212.3680307
+
+*** Driver Code
+#+begin_src elisp
+(defun shizcow/canonicalize-doi (input)
+  "Canonicalize a DOI pattern or URL. 
+If INPUT is a DOI URL, return it as is. 
+If INPUT is a DOI pattern (starting with '10.'), return the canonical DOI URL.
+Otherwise, signal an error."
+  (cond
+   ;; Case 1: DOI URL (already in canonical form)
+   ((string-match-p "^https?://doi\\.org/10\\.[^[:space:]]+" input)
+    input)
+   
+   ;; Case 2: DOI pattern (without the URL)
+   ((string-match-p "^10\\.[^[:space:]]+" input)
+    (concat "https://doi.org/" input))
+
+   ;; Case 3: Invalid input (neither DOI URL nor DOI pattern)
+   (t
+    (error "Invalid input: not a DOI URL or pattern"))))
+
+
+(defvar shizcow/doi-scrapers nil
+  "A list of (REGEX . FUNCTION) pairs for DOI scrapers.")
+
+(defun shizcow/add-doi-scraper (regex function)
+  "Add or update a DOI scraper for a website. 
+If a scraper for the given REGEX already exists, print a warning and overwrite it. 
+Otherwise, add the new scraper."
+  (let ((existing (assoc regex shizcow/doi-scrapers)))
+    (if existing
+        (progn
+          (message "Warning: Overwriting existing scraper for %s" regex)
+          (setcdr existing function))  ;; Overwrite the function in the existing pair
+      (push (cons regex function) shizcow/doi-scrapers))))
+
+(defun shizcow/try-doi-from (url)
+  "Try to extract a DOI from a given URL by applying the appropriate scraper.
+Looks up the URL in `shizcow/doi-scrapers` list and applies the associated function."
+   (let ((scraper (assoc-default url shizcow/doi-scrapers #'string-match-p)))
+     (if scraper
+         (funcall scraper url)
+       (error "No DOI scraper available for this URL"))))
+#+end_src
+
+#+RESULTS:
+: shizcow/try-doi-from
+
+We can then call =shizcow/try-doi-from= to get a DOI.
+
+And we can define specific websites as follows (this one is just a fallback):
+#+begin_src elisp
+(defun shizcow/try-doi-from-doi (url) (shizcow/canonicalize-doi url))
+
+(shizcow/add-doi-scraper "doi\\.org" #'shizcow/try-doi-from-doi)
+#+end_src
+
+*** IEEE
+#+begin_src elisp :results silent
+(defun shizcow/try-doi-from-ieee (url)
+  "Scrape DOI from IEEE website given the URL."
+  (with-current-buffer (url-retrieve-synchronously url)
+    (goto-char (point-min))
+    ; The DOI is easily scraped from the HTML
+    (if (re-search-forward "doi.org/\\(10\\.[0-9]+/[-._;()/:a-zA-Z0-9]+\\)" nil t)
+        (shizcow/canonicalize-doi (match-string 1))
+      (error "No DOI found on the IEEE page"))))
+
+(shizcow/add-doi-scraper "ieeexplore\\.ieee\\.org" #'shizcow/try-doi-from-ieee)
+#+end_src
+*** ACM
 
 #+begin_src elisp :results silent
-(use-package glsl-mode)
-(use-package ob-glsl
-  :after glsl-mode
-  :quelpa (ob-glsl
-		   :fetcher github
-		   :repo "shizcow/ob-glsl"
-		   :files ("*.el" "*.cpp" "*.hpp" "CMakeLists.txt" "*.h" "*.so"))
+(defun shizcow/try-doi-from-acm (url)
+  "Extract DOI from the ACM URL itself or by scraping the webpage content.
+If the DOI pattern is found directly in the URL, return the canonical DOI URL.
+If not, retrieve the webpage and search for the DOI in the HTML content."
+  (let ((doi-regex "doi/\\(10\\.[0-9]+/[-._;()/:a-zA-Z0-9]+\\)")
+        doi)
+    ;; First, check if the URL itself contains a DOI
+    (if (string-match doi-regex url)
+        (setq doi (match-string 1 url))
+      ;; If no DOI in the URL, fetch the page and search for a DOI in the HTML
+      (with-current-buffer (url-retrieve-synchronously url)
+        (goto-char (point-min))
+        (when (re-search-forward doi-regex nil t)
+          (setq doi (match-string 0)))))
+    
+    ;; Return the canonicalized DOI if found, or signal an error if none is found
+    (if doi
+        (shizcow/canonicalize-doi doi)
+      (error "No DOI found in the URL or the webpage"))))
+
+
+(shizcow/add-doi-scraper "dl\\.acm\\.org" #'shizcow/try-doi-from-acm)
+#+end_src
+*** Utilities
+Now that we have the above defined:
+#+begin_src elisp
+(require 'json)
+(require 'url)
+
+(defun shizcow/doi-to-title (canonical-doi)
+  "Retrieve the title of a publication from CrossRef given a canonicalized DOI.
+The CANONICAL-DOI should be in the form 'https://doi.org/DOI'."
+  (let ((api-url (format "https://api.crossref.org/works/%s" (replace-regexp-in-string "https://doi.org/" "" canonical-doi)))
+        title)
+    ;; Retrieve CrossRef data for the DOI
+    (with-current-buffer (url-retrieve-synchronously api-url)
+      (goto-char (point-min))
+      ;; Search for the beginning of the JSON response (after the HTTP headers)
+      (if (re-search-forward "\n\n" nil t)
+          (let* ((json-response (json-read))
+                 (message-status (alist-get 'status json-response)))
+	    (setq message json-response)
+            (if (equal message-status "ok")
+                ;; Extract the title from the JSON data
+                (setq title (alist-get 'title (alist-get 'message json-response))))
+            ;; Handle if title is missing
+            (if (null title)
+                (error "No title found in CrossRef data"))))
+      ;; Clean up the buffer
+      (kill-buffer (current-buffer)))
+    ;; Return the title
+    (if title
+        (mapconcat 'identity title " ")
+      (error "Failed to retrieve title"))))
+
+(defun shizcow/doi-url-to-doi (input)
+  "Convert DOI URL INPUT of the form 'https://doi.org/...' to a DOI.
+If INPUT is not a DOI URL, return the original URL."
+  (if (string-match-p "^https?://doi\\.org/" input)
+      ;; Extract DOI from the URL
+      (let ((doi (replace-regexp-in-string "^https?://doi\\.org/" "" input)))
+        (shizcow/canonicalize-doi doi))
+    ;; Return the original input if it's not a DOI URL
+    input))
+
+(defun shizcow/select-url-from-multi-resolution (data preferred-publishers)
+  "Select the appropriate URL from DATA based on PREFERRED-PUBLISHERS.
+If any preferred publisher regex matches a URL, return that URL. 
+Otherwise, return the first URL in DATA."
+  (let ((matched-url nil)
+        (i 0)
+        (data-length (length data)))
+    ;; Check for matching preferred publishers
+    (while (and (not matched-url) (< i data-length))
+      (let* ((entry (nth i data))
+             (url (cdr (car entry))))
+        ;; Check if the URL matches any preferred publisher regex
+        (dolist (pattern preferred-publishers)
+          (when (and url (string-match-p pattern url))
+            (setq matched-url url))))
+      (setq i (1+ i))) ; Move to the next entry
+
+    ;; If a matched URL is found, return it; otherwise, return the first URL in DATA
+    (if matched-url
+        matched-url
+      (cdr (assoc 'URL (car data))))))
+
+
+(require 'url)
+(defun wget-installed-p ()
+  "Check if wget is installed on the system."
+  (let ((result (call-process "which" nil (get-buffer-create "*wget-check*") nil "wget")))
+    (eq result 0)))
+
+(defun shizcow/resolve-url-synchronously (url)
+  "Resolve a URL using wget by following redirects and return the final URL."
+  (unless (wget-installed-p)
+    (error "wget is not installed. Please install wget to use this function."))
+  
+  (let ((output-buffer (get-buffer-create "*wget-output*"))
+        (final-url nil))
+    
+    (unwind-protect
+        (progn
+          (with-current-buffer output-buffer
+            (erase-buffer)
+            (if (eq (call-process "wget" nil output-buffer nil "--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" "--output-document=/dev/null" url) 0)
+                (progn
+                  (goto-char (point-min))
+                  (while (re-search-forward "^Location: \\(.*\\) " nil t)
+                    (setq final-url (match-string 1)))
+                  (unless final-url
+                    (setq final-url url)))
+              (message "Failed to resolve URL with wget."))))
+      (kill-buffer output-buffer)) ;; Ensure buffer is killed even if an error occurs
+    
+    final-url))
+
+(defun shizcow/ieee-url-redirect-workaround (url)
+  (if (string-match "^https?://ieeexplore\\.ieee\\.org/" url)
+      (progn
+	;; Extract the arnumber value
+	(if (string-match "arnumber=\\([0-9]+\\)" url)
+            (let ((arnumber (match-string 1 url)))
+	      (concat "https://ieeexplore.ieee.org/document/" arnumber))
+          redirect-url))
+    redirect-url))
+
+(defun shizcow/url-redirect-workaround (url)
+  (let ((redirect-url (shizcow/resolve-url-synchronously url)))
+    ;; IEEE is sooooooooo special that they think they can
+    ;; ignore DOI etiquette
+    (shizcow/ieee-url-redirect-workaround redirect-url)))
+
+(defun shizcow/resolve-doi-url (doi-url &optional preferred-publishers)
+  "Resolve a DOI URL to its full URL.
+If PREFERRED-PUBLISHERS is specified, prefer the resolved URL from that publisher.
+Note that preferred-publishers is a list of regex expressions."
+  
+  (let* ((doi (replace-regexp-in-string "^https?://doi\\.org/" "" (shizcow/doi-url-to-doi doi-url)))
+         (api-url (format "https://api.crossref.org/works/%s" doi)))
+    (with-current-buffer (url-retrieve-synchronously api-url)
+      (goto-char (point-min))
+      ;; Search for the beginning of the JSON response (after the HTTP headers)
+      (if (re-search-forward "\n\n" nil t)
+          (let* ((json-response (json-read))
+                 (message-status (alist-get 'status json-response)))
+	    (setq message json-response)
+            (if (equal message-status "ok")
+                ;; Extract the data from the JSON data
+		(let* ((resources (alist-get 'resource (alist-get 'message json-response)))
+		       (primary (alist-get 'primary resources))
+		       (secondary (mapcar 'identity (alist-get 'secondary resources)))
+		       (resource-list (cons primary secondary)))
+		  (setq url (shizcow/select-url-from-multi-resolution resource-list preferred-publishers))))
+            ;; Handle if title is missing
+            (if (null url)
+                (error "No URL found in CrossRef data"))))
+      ;; Clean up the buffer
+      (kill-buffer (current-buffer)))
+    (shizcow/url-redirect-workaround url)))
+
+(defun shizcow/search-crossref-for-title (title)
+  "Search CrossRef for papers by TITLE and return a list of the top 10 results.
+Each result is an alist containing 'title', 'authors', and 'doi'."
+  (let* ((url-request-method "GET")
+         (base-url "https://api.crossref.org/works?rows=10&query.title=")
+         (query (url-hexify-string title))
+         (full-url (concat base-url query))
+         (buffer (url-retrieve-synchronously full-url))
+         results output)
+    (with-current-buffer buffer
+      (goto-char url-http-end-of-headers)
+      (let ((json-object-type 'alist))
+        (setq results (json-read))))
+    (kill-buffer buffer)
+    ;; Process the results
+    (let ((items (cdr (assoc 'items (cdr (assoc 'message results))))))
+      (if items
+          (setq output
+                (mapcar (lambda (item)
+                          (let ((title (mapconcat 'identity (cdr (assoc 'title item)) " "))
+                                (authors (mapcar (lambda (author)
+                                                   (concat (cdr (assoc 'given author)) " " (cdr (assoc 'family author))))
+                                                 (cdr (assoc 'author item))))
+                                (doi (cdr (assoc 'DOI item))))
+                            `((title . ,title)
+                              (authors . ,authors)
+                              (doi . ,doi))))
+                        items))
+        (setq output nil)))
+    output))
+
+(defun shizcow/prompt-url-from-crossref-search (title prompt)
+  "Search for papers by TITLE, present a list to the user with Ivy, and return the selected paper's DOI."
+  (require 'ivy)
+  (require 'cl-lib)
+  (let* ((papers (shizcow/search-crossref-for-title title))
+         (num-papers (length papers))
+         ;; Calculate the width of the largest number (e.g., "10" has 2 characters)
+         (max-index-width (length (number-to-string num-papers)))
+         ;; Create a numbered list of formatted strings with bold title and italicized authors
+         (paper-options (cl-mapcar (lambda (paper index)
+                                     (let ((title (propertize (cdr (assoc 'title paper)) 'face 'bold))
+                                           (authors (propertize (mapconcat 'identity (cdr (assoc 'authors paper)) ", ") 'face 'italic))
+                                           (doi (cdr (assoc 'doi paper))))
+                                       ;; Format the entry with right-aligned numbers, bold title, and italicized authors
+                                       (format (concat "%" (number-to-string max-index-width) "d) %s\n"
+                                                       (make-string (+ max-index-width 2) ? ) "Authors: %s\n"
+                                                       (make-string (+ max-index-width 2) ? ) "DOI: %s")
+                                               index title authors doi)))
+                                   papers
+                                   (number-sequence 1 num-papers)))
+         ;; Use ivy-read to present the numbered options
+         (selected-option (ivy-read prompt paper-options))
+         ;; Extract the index from the selected option
+         (selected-index (string-to-number (car (split-string selected-option ")"))))
+         ;; Get the corresponding paper using the selected index
+         (selected-paper (nth (1- selected-index) papers))) ;; Adjust for 0-based index
+    ;; Return only the DOI of the selected paper
+    (if (shizcow/is-url-p selected-option)
+	selected-option
+      (shizcow/canonicalize-doi (cdr (assoc 'doi selected-paper))))))
+#+end_src
+
+#+RESULTS:
+: shizcow/prompt-url-from-crossref-search
+
+** Scihub
+While I do have access to papers on common platforms through my institution, it's so annoying to have to pass API keys. So...
+#+begin_src elisp :results silent
+(use-package scihub
+  :quelpa (scihub :fetcher github :repo "emacs-pe/scihub.el" 
+  :commit "d985c0326b66aa19581918deccdc5edcacccf953")
+  :init
+  (setq scihub-fetch-domain 'scihub-fetch-domains-lovescihub))
+#+end_src
+
+** arXiv (Base)
+I'm using [[https://github.com/slotthe/arxiv-citation][arXiv-citation]] to do the heavy lifting here. If the paper is published, it can generate the correct bibtex. The below elisp sets up the package as well as adds custom extensions to deal with additional sources (eg ACM). The next subsections in this document define the extension initialization functions.
+
+#+begin_src emacs-lisp :results silent :noweb strip-export :tangle no
+(use-package request) ; TODO: make this conditional
+
+<<arxiv-acm-init>>
+<<arxiv-nature-init>>
+<<arxiv-citation-init>>
+
+(use-package arxiv-citation
+  :after request
+  :commands (arxiv-citation-elfeed arxiv-citation-gui)
+  :pin melpa
   :custom
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((glsl . t))))
+  ; Commented out
+  ; (arxiv-citation-library nil)
+  ; (arxiv-citation-bibtex-files nil)
+  :config
+  ;; Load in the hook (see below)
+  (shizcow-init/arxiv-citation-init)
+  (shizcow-init/arxiv-acm-init)
+  (shizcow-init/arxiv-nature-init))
+
+(require 'arxiv-citation)
 #+end_src
-** Additional Config
-I use =M-x count-words= a lot, so have dedicated a keybinding:
-#+begin_src emacs-lisp :results silent
-(add-hook 'org-mode-hook
-          (lambda ()
-            (define-key org-mode-map (kbd "C-c w")
-              'count-words)))
+
+*Note* The below hasn't been fixed for the transient identifier scheme yet
+
+One issue with arXiv-citation is that it does not check for duplicate bibtex entries. If you continue to run =arxiv-citation-gui= it will pollute the bibliography files. In order to fix this, =arxiv-citation= must be re-defined (it's not modular enough in upstream to just define advice).
+
+#+name: arxiv-citation-init
+#+begin_src emacs-lisp :results silent :tangle no
+(defun shizcow-init/arxiv-citation-init ()
+  (require 'arxiv-citation)
+  (require 'bibtex)
+  (defun arxiv-citation-file-maybe (citation file)
+    "Insert a citation into a given file if it is not already there"
+    (when (or (not (file-exists-p file))
+	      (with-temp-buffer
+		(insert-file-contents file)
+		;; It's just easier to use regex to search for the
+		;; key from the citation instead of re-parsing
+		(let ((key-line (car (split-string citation "\n"))))
+		  (string-match "{\\(.*\\),$" key-line)
+		  (not
+		   (bibtex-search-entry (match-string 1 key-line) nil nil nil)))))
+      ;; When appending to the file, the ideal format is to have a single
+      ;; empty line between citations. Doing this requires loading the file
+      ;; contents, trimming the end, then inserting with an extra newline.
+      (with-temp-buffer
+	(insert-file-contents file)
+	(goto-char (point-max))
+	(delete-all-space)
+	(insert (concat "\n\n" citation "\n"))
+	(write-region (point-min) (point-max) file)
+	)))
+  (defun arxiv-citation (url)
+    "Create a citation from the given URL.
+ArXiv and zbmath are supported, as are some additional sources.
+Running `C-h f arxiv-citation-get--citation TAB` will list the currently supported sources.
+Insert the new entry into all files listed in the variable
+`arxiv-citation-bibtex-files'."
+    (interactive)
+    (let ((citation (arxiv-citation-get-citation url)))
+      (dolist (file arxiv-citation-bibtex-files)
+	;; This is where this command deviates from upstream.
+	;; Before entering the citation into the file,
+	;; check if it's already there.
+	(arxiv-citation-file-maybe citation file)))))
 #+end_src
 
-Other stuff
+Example of use, can be called interactively:
+#+begin_src elisp :tangle no :noweb yes
+<<arxiv-citation-init>>
+(shizcow-init/arxiv-citation-init)
+(arxiv-citation "https://www.nature.com/articles/s41598-019-46595-w")
+#+end_src
+
+#+RESULTS:
+
+** TODO ACM
+
+Old stuff, need to clean out
+
+
+TODO:
+- Auto-generated ACM citations apparently suck and get a lot of details wrong
+- Therefore, we should consider using a separate source (Google Scholar, doitobibtex.org, or some generic doi API) to get these results
+- ACM DL has some wack authentication anyway, so I can't script this without running basically an entire Marionette instance
+
+There's no package for this, so I've written some elisp to add functionality to arXiv-citation. For adding the citations, all that needs done is writing a web-scraper and defining advice for =arxiv-citation-get-citation=. After that, everything magically works.
+
+#+name: arxiv-acm-init
+#+begin_src elisp :tangle no :eval never
+(defun shizcow-init/arxiv-acm-init ()
+  (require 'request)
+  (require 'arxiv-citation)
+
+  (defun doi-from-acm (url)
+    ;; Individual articles are always(?) in the form of:
+    ;; https://dl.acm.org/doi/<DOI>
+    (when (string-match "^https:\\/\\/dl\\.acm\\.org\\/doi\\/.*$" url) (substring url (length "https://dl.acm.org/doi/")))
+    )
+
+  (defun arxiv-citation-get-acm-citation (url)
+    "Obtain an ACM citation from URL."
+    ;; ACM has a helpful endpoint for getting a citation:
+    ;; URL: https://dl.acm.org/action/exportCiteProcCitation
+    ;; Method: POST
+    ;; Data: {"dois": <DOI-from-URL>, "targetFile": "custom-bibtex", "format": "bibtex"}
+
+    ;; ACM has a mangled JS function at https://dl.acm.org/templates/jsp/_ux3/_acm/citeproc.min.js
+    ;; This is complete but also WAY bigger. What's here is a fraction of the total.
+
+    (let* ((doi (doi-from-acm url))
+	   (response
+	    (request-response-data
+	     (request "https://dl.acm.org/action/exportCiteProcCitation"
+	       :type "POST"
+	       :data (list (cons "dois" doi) (cons "targetFile" "custom-bibtex") (cons "format" "bibtex"))
+	       :headers '(("Cookie" . "JSESSIONID=71008ff3-1c1c-4405-85bd-5aa7c4600bff; MAID=d4f4CHOi0fN8Wj9W4iuaOA==; MACHINE_LAST_SEEN=2023-09-08T10%3A20%3A45.712-07%3A00; I2KBRCK=1; __cf_bm=CXqq08xpNGRSOP2CyUx8y5AIVpJ_A0B8UJpXlbjTPbM-1694193645-0-AbKB843AjWYG5xO5Pt45A+VSm8ybbY9HIc/i2cD3LxZZghtTY06fEoz2j7kKs8YS5e5xj2VNyPIKrDcINMLplcw=;CookieConsent={stamp:%27h7l3zW7WEN8XlLkuot6Kpzys4fiowuzZ3U7cFza+GqVXxrHIpEdHew==%27%2Cnecessary:true%2Cpreferences:false%2Cstatistics:false%2Cmarketing:false%2Cmethod:%27explicit%27%2Cver:1%2Cutc:1694193682994%2Cregion:%27us%27}")
+			  ("User-Agent" . "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/117.0")
+			  ("Accept" . "*/*")
+			  ("Accept-Language" . "en-US,en;q=0.5")
+			  ("Accept-Encoding" . "gzip, deflate, br"))
+	       :sync t
+	       :parser 'json-read
+	       :error
+	       (cl-function (lambda (&rest args &key response &allow-other-keys)
+			      (user-error "Got error %S from %S" (request-response-error-thrown response) (request-response-url response))
+			      ))
+	       )))
+	   (data (cdr (car (aref (alist-get 'items response) 0) )))
+	   (authors_ (mapconcat (lambda (pair) (concat (alist-get 'family pair) ", " (alist-get 'given pair)))
+				(cdr (cl-find-if (lambda (x) (string-equal (car x) "author")) data))
+				" and "))
+	   (year (aref (aref (alist-get 'date-parts (cdr (cl-find-if (lambda (x) (string-equal (car x) "issued")) data))) 0) 0))
+	   (month (aref (aref (alist-get 'date-parts (cdr (cl-find-if (lambda (x) (string-equal (car x) "issued")) data))) 0) 1))
+	   (title (cdr (cl-find-if (lambda (x) (string-equal (car x) "title")) data)))
+	   (DOI (cdr (cl-find-if (lambda (x) (string-equal (car x) "DOI")) data)))
+	   (keyword (cdr (cl-find-if (lambda (x) (string-equal (car x) "keyword")) data)))
+	   (acm-type (cdr (cl-find-if (lambda (x) (string-equal (car x) "type")) data)))
+	   (acm-key (cond
+		     ((string-equal acm-type "PAPER_CONFERENCE") "inproceedings")
+		     ((string-equal acm-type "ARTICLE") "article")
+		     (t (user-error (concat "Unknown article type \"" acm-type "\" needed in arxiv-citation-get-acm-citation")))
+		     ))
+	   (abstract (cdr (cl-find-if (lambda (x) (string-equal (car x) "abstract")) data)))
+	   ;; the below are all nullable
+	   (isbn (cdr (cl-find-if (lambda (x) (string-equal (car x) "ISBN")) data)))
+	   (issn (cdr (cl-find-if (lambda (x) (string-equal (car x) "ISSN")) data)))
+	   (container-title (cdr (cl-find-if (lambda (x) (string-equal (car x) "container-title")) data)))
+	   (numpages (let ((numpages (cdr (cl-find-if (lambda (x) (string-equal (car x) "numpages")) data)))
+			   (number-pages (cdr (cl-find-if (lambda (x) (string-equal (car x) "number-of-pages")) data))))
+		       (if numpages numpages number-pages)))
+	   (page (cdr (cl-find-if (lambda (x) (string-equal (car x) "page")) data)))
+	   (publisher (cdr (cl-find-if (lambda (x) (string-equal (car x) "publisher")) data)))
+	   (address (cdr (cl-find-if (lambda (x) (string-equal (car x) "publisher-place")) data)))
+	   (articleno (cdr (cl-find-if (lambda (x) (string-equal (car x) "collection-number")) data)))
+	   (issue (cdr (cl-find-if (lambda (x) (string-equal (car x) "issue")) data)))
+	   (number (cdr (cl-find-if (lambda (x) (string-equal (car x) "number")) data)))
+	   (volume (cdr (cl-find-if (lambda (x) (string-equal (car x) "volume")) data)))
+	   ;; for debug:
+	   ;; (remaining-json (cl-remove-if (lambda (x) (cl-find-if (lambda (y) (string-equal (car x) y)) '("author" "id" "type" "accessed" "issued" "original-date" "call-number" "event-place" "DOI" "keyword" "title" "URL" "abstract" "collection-number" "container-title" "ISBN" "collection-title" "ISSN" "issue" "number" "number-of-pages" "page" "publisher" "publisher-place" "source" "volume"))) data))
+	   )
+
+      (cl-flet ((mk-citation (key)
+                  (concat (concat "@" acm-key "{") (or key "") ",\n"
+                          " author        = {" authors_ "},\n"
+                          " year          = {" (number-to-string year) "},\n"
+                          " month         = {" (number-to-string month) "},\n"
+                          " title         = {" title "},\n"
+                          " doi           = {" DOI "},\n"
+                          " keywords      = {" keyword "},\n"
+                          " abstract      = {" abstract "},\n"
+                          " url           = {" url "},\n"
+			  (when isbn
+			    (concat " isbn          = {" isbn "},\n"))
+			  (when issn
+			    (concat " issn          = {" issn "},\n"))
+			  (when container-title
+			    (concat " booktitle     = {" container-title "},\n"))
+			  (when numpages
+			    (concat " numpages      = {" numpages "},\n"))
+			  (when page
+			    (concat " pages         = {" page "},\n"))
+			  (when publisher
+			    (concat " publisher     = {" publisher "},\n"))
+			  (when address
+			    (concat " address       = {" address "},\n"))
+			  (when articleno
+			    (concat " articleno     = {" articleno "},\n"))
+			  (when issue
+			    (concat " number        = {" issue "},\n"))
+			  (when volume
+			    (concat " volume        = {" volume "},\n"))
+                          "}")))
+	(mk-citation (with-temp-buffer
+                       (insert (mk-citation nil))
+                       (arxiv-citation-generate-autokey))))
+      
+      ))
+
+  (advice-add 'arxiv-citation-get-citation :around
+	      (lambda (origfun &rest r)
+		(if (doi-from-acm (car r)) (apply 'arxiv-citation-get-acm-citation r) (apply origfun r))
+		))
+  )
+#+end_src
+
+An example which can also be called interactively:
+#+begin_src emacs-lisp :tangle no :noweb yes
+<<arxiv-acm-init>>
+(shizcow-init/arxiv-acm-init)
+(arxiv-citation-get-acm-citation "https://dl.acm.org/doi/10.1145/192724.192731")
+#+end_src
+
+#+RESULTS:
+: 10.1145/192724.192731
+
+** Nature
+Similar to ACM, there is no package with clean integration to gather bibtex entries from [[https://www.nature.com/srep/][the journal Nature's website]] (not necessarily Nature itself).
+
+#+name: arxiv-nature-init
+#+begin_src elisp :tangle no :eval never
+(defun shizcow-init/arxiv-nature-init ()
+  (require 'request)
+  (require 'arxiv-citation)
+
+  (defun doi-from-nature (url)
+    ;; DOI information is NOT encoded in the URL
+    ;; Performing a GET request will return a web page containing the meta tag:
+    ;;   <meta name="DOI" content="<DOI>"/>
+    (when (string-match "^https:\\/\\/www\\.nature\\.com\\/articles\\/.*$" url)
+      ;; Do query
+      (let* ((response
+	      (request-response-data
+	       (request url
+		 :type "GET"
+		 :sync t
+		 ;; Parsing the actual HTML:
+		 :parser (lambda () (libxml-parse-html-region (point) (point-max)))
+		 ))))
+	(dom-attr
+	 (cl-find-if
+	  (lambda (meta-node)
+	    ;; Case insensitive match
+	    (cl-equalp "DOI" (dom-attr meta-node 'name))
+	    )
+	  (dom-by-tag response 'meta))
+	 'content))))
+
+  
+  (defun arxiv-citation-get-nature-citation (url)
+    "Obtain a citation from an article on the journal Nature"
+    ;; Nature has a helpful endpoint for getting a citation:
+    ;; URL: https://citation-needed.springer.com/v2/references/<DOI>?format=refman&flavour=citation
+    ;; METHOD: GET
+
+    (let* ((doi (doi-from-nature url))
+	   (api-url (concat "https://citation-needed.springer.com/v2/references/" doi))
+	   (response
+	    (request-response-data
+	     (request api-url
+	       :type "GET"
+	       :data '(("format" . "refman") ("flavour" . "citation"))
+	       :sync t
+	       :parser 'buffer-string
+	       )))
+	   (cite-keys
+	    ;; The response is in the format:
+	    ;; <KEY>   - <VAL>
+	    ;; Where each line has one entry and there can be duplicate entries
+	    ;; A list of key meanings:
+	    ;; TY: Type; "JOUR" for journal
+	    ;; AU: Author; Possibly duplicates
+	    ;; PY: Print Year
+	    ;; DA: Date in YY/MM/DD format
+	    ;; TI: Title
+	    ;; JO: Journal name
+	    ;; SP: Article number
+	    ;; VL: Volums
+	    ;; IS: Issue
+	    ;; AB: Abstract
+	    ;; SN: ISSN
+	    ;; UR: URL
+	    ;; DO: DOI
+	    ;; ID: Bibtex citation ID -- discarded due to over-simplification
+	    ;; Parse the response into tuples for later consumption
+	    (remq nil 
+		  (mapcar
+		   (lambda (response-line)
+		     ;; Split on the (first) '-' character
+		     (let ((dash-location
+			    (cl-position ?- response-line :test 'char-equal)))
+		       (when dash-location
+			 (list
+			  (string-trim (substring response-line 0 dash-location))
+			  (string-trim (substring response-line (+ 1 dash-location)))))))
+		   (split-string response "\n"))))
+	   (authors_ (mapconcat (lambda (tuple) (nth 1 tuple))
+				(cl-remove-if-not (lambda (tuple) (string-equal "AU" (car tuple))) cite-keys)
+				" and "))
+	   (YMD-string (nth 1 (cl-find-if (lambda (tuple) (string-equal "DA" (car tuple))) cite-keys)))
+	   (year  (progn
+		    (string-match "\\([0-9][0-9][0-9][0-9]\\)/\\([0-9][0-9]\\)/\\([0-9][0-9]\\)" YMD-string)
+		    (match-string 1 YMD-string)
+		    ))
+	   (month (match-string 2 YMD-string))
+	   (day   (match-string 2 YMD-string))
+	   (title (nth 1 (cl-find-if (lambda (tuple) (string-equal "TI" (car tuple))) cite-keys)))
+	   (DOI (nth 1 (cl-find-if (lambda (tuple) (string-equal "DO" (car tuple))) cite-keys)))
+	   (nature-type (nth 1 (cl-find-if (lambda (tuple) (string-equal "TY" (car tuple))) cite-keys)))
+	   (nature-key (cond
+			((string-equal nature-type "JOUR") "article")
+			(t (user-error (concat "Unknown article type \"" nature-type "\" needed in arxiv-citation-get-nature-citation")))
+			))
+	   (abstract (nth 1 (cl-find-if (lambda (tuple) (string-equal "AB" (car tuple))) cite-keys)))
+	   (cite-url (nth 1 (cl-find-if (lambda (tuple) (string-equal "UR" (car tuple))) cite-keys)))
+	   (cite-doi (nth 1 (cl-find-if (lambda (tuple) (string-equal "DO" (car tuple))) cite-keys)))
+	   ;; The below are all nullable
+	   (issn (nth 1 (cl-find-if (lambda (tuple) (string-equal "SN" (car tuple))) cite-keys)))
+	   (container-title (nth 1 (cl-find-if (lambda (tuple) (string-equal "JO" (car tuple))) cite-keys)))
+	   (number (nth 1 (cl-find-if (lambda (tuple) (string-equal "SP" (car tuple))) cite-keys)))
+	   (volume (nth 1 (cl-find-if (lambda (tuple) (string-equal "VL" (car tuple))) cite-keys))))
+      (cl-flet ((mk-citation (key)
+                  (concat (concat "@" nature-key "{") (or key "") ",\n"
+                          " author        = {" authors_ "},\n"
+                          " year          = {" year "},\n"
+                          " month         = {" month "},\n"
+                          " day           = {" day "},\n"
+                          " title         = {" title "},\n"
+                          " doi           = {" cite-doi "},\n"
+                          " abstract      = {" abstract "},\n"
+                          " url           = {" cite-url "},\n"
+			  (when issn
+			    (concat " issn          = {" issn "},\n"))
+			  (when container-title
+			    (concat " journal       = {" container-title "},\n"))
+			  (when number
+			    (concat " number        = {" number "},\n"))
+			  (when volume
+			    (concat " volume        = {" volume "},\n"))
+                          "}")))
+	(mk-citation (with-temp-buffer
+                       (insert (mk-citation nil))
+                       (arxiv-citation-generate-autokey))))
+      ))
+
+  (advice-add 'arxiv-citation-get-citation :around
+	      (lambda (origfun &rest r)
+		(if (doi-from-nature (car r)) (apply 'arxiv-citation-get-nature-citation r) (apply origfun r))
+		))
+  )
+#+end_src
+
+#+begin_src elisp :noweb yes :tangle no
+<<arxiv-nature-init>>
+(shizcow-init/arxiv-nature-init)
+(arxiv-citation-get-citation "https://www.nature.com/articles/s41598-019-46595-w")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+@article{chen19:adiab-quant-flux-param,
+ author        = {Chen, Olivia and Cai, Ruizhe and Wang, Yanzhi and Ke, Fei and Yamae, Taiki and Saito, Ro and Takeuchi, Naoki and Yoshikawa, Nobuyuki},
+ year          = {2019},
+ month         = {07},
+ day           = {07},
+ title         = {Adiabatic Quantum-Flux-Parametron: Towards Building Extremely Energy-Efficient Circuits and Systems},
+ doi           = {10.1038/s41598-019-46595-w},
+ abstract      = {Adiabatic Quantum-Flux-Parametron (AQFP) logic is an adiabatic superconductor logic family that has been proposed as a future technology towards building extremely energy-efficient computing systems. In AQFP logic, dynamic energy dissipation can be drastically reduced due to the adiabatic switching operations using AC excitation currents, which serve as both clock signals and power supplies. As a result, AQFP could overcome the power/energy dissipation limitation in conventional superconductor logic families such as rapid-single-flux-quantum (RSFQ). Simulation and experimental results show that AQFP logic can achieve an energy-delay-product (EDP) near quantum limit using practical circuit parameters and available fabrication processes. To shed some light on the design automation and guidelines of AQFP circuits, in this paper we present an automatic synthesis framework for AQFP and perform synthesis on 18 circuits, including 11 ISCAS-85 circuit benchmarks, 6 deep-learning accelerator components, and a 32-bit RISC-V ALU, based on our developed standard cell library of AQFP technology. Synthesis results demonstrate the significant advantage of AQFP technology. We forecast 9,313×, 25,242× and 48,466× energy-per-operation advantage, compared to the synthesis results of TSMC (Taiwan Semiconductor Manufacturing Company) 12 nm fin field-effect transistor (FinFET), 28 nm and 40 nm complementary metal-oxide-semiconductor (CMOS) technology nodes, respectively.},
+ url           = {https://doi.org/10.1038/s41598-019-46595-w},
+ issn          = {2045-2322},
+ journal       = {Scientific Reports},
+ number        = {10514},
+ volume        = {9},
+}
+#+end_example
+
+** TODO Fallback
+TODO:
+- If none of the above options match a URL, prompt to fill out a bibtex entry manually. This should be done in a transient buffer (with the correct major mode set) before validation. Consider using the pre-packaged "generate a unique key name for this entry" function that's also used in [[Nature]].
+
+* Roam
+The last time this config underwent a major re-write was when I started my PhD in 2023. The driving force was a change in workflow; I needed to integrate yet another part of my life (research) into my text editor. As a part of this task, I am using [[https://www.orgroam.com/][org-roam]] to organize my notes.
+
+Another major update was completed in 2024 with the transient identifier scheme.
+As a researcher, it's important to me to not only keep notes, but also store files efficiently. Many of the papers I read are published and publicly available -- there is no need to keep these documents around perpetually (though a local cache would be great). Many of the papers I read are pre-publication, so a local copy is preferred until publication. Some papers are living (e.g. in [[https://www.overleaf.com/][Overleaf]] with no plans of publication). And some papers aren't even papers (e.g. slide decks, artifacts, or /really/ interesting code snippets). So we have some stuff to deal with that
+
+My org-roam home directory is in =~/smbshare/PhD-roam=. =smbshare= is the folder I use for network storage (hosted on my desktop). The org-roam home directory hold all my research, notes, projects, and more or less every document I'll have written over the course of my degree.
+
 #+begin_src emacs-lisp :results silent
-
-(use-package org-bullets :after (org) :config (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
-
-(setq org-agenda-files '("~/org/agenda/"))
-
-;; org-reveal
-(use-package ox-reveal
+(use-package org-roam
   :after org
-  :ensure t ; ree
-  :custom (org-reveal-root "https://cdn.jsdelivr.net/npm/reveal.js"))
-
+  :init
+  (setq org-roam-directory (file-truename "~/smbshare/PhD-roam"))
+  (unless (file-directory-p org-roam-directory) (make-directory org-roam-directory))
+  :config
+  ;; TODO: make this work from my laptop
+  (org-roam-db-autosync-mode)
+  (setq org-roam-mode-sections
+      (list #'org-roam-backlinks-section
+            #'org-roam-reflinks-section
+            #'org-roam-unlinked-references-section
+            ))
+  (require 'org-roam-protocol))
 #+end_src
+
+** Transience
+This is the scheme I've written to store files locally.
+
+*** The Method
+Papers (or in general, an external-referenced resources) and metadata are stored in the vault, aka =org-roam-directory/vault=.
+#+begin_src elisp :results silent
+(setq shizcow/roamdb-vault (concat (file-name-as-directory org-roam-directory) "vault"))
+(when (not (file-directory-p shizcow/roamdb-vault)) (make-directory shizcow/roamdb-vault))
+#+end_src
+
+Every resource is assigned its own "transient identifier" file within the =vault/ident= directory. This is a file containing Elisp-readable information about the resource. More info on transient identifier files is in the below section.
+#+begin_src elisp :results silent
+(setq shizcow/roamdb-vault-ident (concat (file-name-as-directory shizcow/roamdb-vault) "ident"))
+(when (not (file-directory-p shizcow/roamdb-vault-ident)) (make-directory shizcow/roamdb-vault-ident))
+#+end_src
+
+External, publicly available resources are not (permanently) kept on disk. They are simply referenced to by a transient identifier.
+
+Internal, privately available resources are kept within the =vault/readonly_local= directory, referenced to by a transient identifier. This type of resource is intended to never change (unless the transient identifier is manually updated).
+#+begin_src elisp :results silent
+(setq shizcow/roamdb-vault-local (concat (file-name-as-directory shizcow/roamdb-vault) "local"))
+(when (not (file-directory-p shizcow/roamdb-vault-local)) (make-directory shizcow/roamdb-vault-local))
+#+end_src
+
+When a resource is requested, it is either downloaded (external) or symlinked (internal) to the =vault/transient= directory. Any org links should point to the transient identifier, which will automatically set up the download/link step, update metadata, and forward the user to the newly downloaded resource.
+#+begin_src elisp :results silent
+(setq shizcow/roamdb-vault-transient (concat (file-name-as-directory shizcow/roamdb-vault) "transient"))
+(when (not (file-directory-p shizcow/roamdb-vault-transient)) (make-directory shizcow/roamdb-vault-transient))
+#+end_src
+
+Transient identifiers also contain information on when the resource was last accessed. Resources not accessed within a certain amount of time (=shizcow/transient-purge-time=) are removed from the transient directory (on Emacs startup).
+#+begin_src elisp
+(defcustom shizcow/transient-purge-time
+  24
+  "Time (in hours) that a resource is alive for. If a resource has not been accessed in this amount of time, it will be removed the next time Emacs is started")
+#+end_src
+*** Transient Identifiers
+Transient Identifiers are files which hold metadata about a particular resource. Below is an example of the format:
+#+begin_src elisp :tangle no :eval never
+'((UUID      . "some-uuid")
+  (title     . "Common Resource Title")
+  (filetype  . "pdf, pptx, etc or blank for a directory")
+  (backing   . "local or online")
+  (location  . "URI; on disk (in vailt/local) or online (https). Online locations prefer concrete hosts for now (e.g. dl.acm.org) but may support raw DOI in the future.")
+  (doi       . "DOI in the form of https://doi.org/<DOI> if applicable. Allows for linking to a freely hosted PDF but grabbing bibtex from the source")
+  (timestamp . "Timestamp this resource was last accessed as an elisp timestamp, or none (optional)"))
+#+end_src
+
+TODO: Bibtex should be supported eventually.
+
+**** File Structure
+Each transient identifier receives its own file. The name of the file is the same as the UUID with =.tid= appended:
+#+begin_src elisp
+(defun shizcow/tid-uuid-to-filename (uuid)
+  (concat (file-name-as-directory shizcow/roamdb-vault-ident) uuid ".tid"))
+
+(defun shizcow/fetch-transient-identifier (uuid)
+  (let ((filename (shizcow/tid-uuid-to-filename uuid)))
+    (eval (car (read-from-string
+		(get-string-from-file filename))))))
+#+end_src
+
+Transient identifiers are fairly simple files, so it's easy to define a robust pretty-print function for them:
+#+begin_src elisp :results silent
+(defun shizcow/pp-transient-identifier (tid)
+  (setq shizcow/tmp/old-max-width pp-use-max-width)
+  (setq pp-use-max-width nil)
+  (let* ((mident (cl-reduce #'max (mapcar (lambda (el)
+					    (length (pp (car el))))
+					  tid)))
+	 (istr (mapconcat (lambda (el)
+			    (concat
+			     "("
+			     (format (concat "%-" (number-to-string mident) "s")
+				     (pp (car el)))
+			     " . "
+			     (pp (cdr el))
+			     ")")
+			    ) tid "\n  ")))
+    (setq pp-use-max-width shizcow/tmp/old-max-width)
+    (concat "'(" istr ")")))
+#+end_src
+
+Which are written to disk as:
+#+begin_src elisp :results silent
+(defun shizcow/create-or-update-transient-identifier (tid)
+  (let* ((uuid (cdr (assoc 'UUID tid)))
+	 (filename (shizcow/tid-uuid-to-filename uuid)))
+    (write-region (shizcow/pp-transient-identifier tid) nil filename)))
+#+end_src
+
+**** Creating New TIDs
+Below is a utility function to create a new UUID:
+#+begin_src elisp
+(defun shizcow/new-tid-uuid nil
+  (string-trim
+   (let ((uuid nil) (filename nil))
+     (while (progn
+	      (setq uuid (xah-create-random-uuid))
+	      (file-exists-p (shizcow/tid-uuid-to-filename uuid))))
+     uuid)))
+#+end_src
+
+#+RESULTS:
+: shizcow/new-tid-uuid
+
+And one to copy to org links:
+#+begin_src elisp
+(defun shizcow/orglink-from-tid (tid)
+  (let* ((uuid (cdr (assoc 'UUID tid)))
+	   (link (concat "trans:" uuid))
+	   (desc (format "%s" (cdr (assoc 'title tid)))))
+      (list link desc)))
+
+(defun shizcow/and-copy-transient-to-orglinks (tid)
+  (let ((ll (shizcow/orglink-from-tid tid)))
+      (if (member (list (nth 0 ll) (nth 1 ll)) org-stored-links)
+	  (message "Transient identifier created, link already in org-stored-links")
+	(push ll org-stored-links)
+	(message "Created transient identifier and stored to org-stored-links as: %s" (or (nth 1 ll) (nth 0 ll))))))
+#+end_src
+
+#+RESULTS:
+: shizcow/and-copy-transient-to-orglinks
+
+Which can be called interactively with:
+#+begin_src elisp :results silent
+(defun shizcow/create-tuid nil
+  (interactive)
+  (let ((tid
+	 ;; Create
+	 (list (cons 'UUID (shizcow/new-tid-uuid))
+	       (cons 'title (read-string "Resource Title: "))
+	       ;; TODO: Infer this
+	       (cons 'filetype (read-string "File type (extension): "))
+	       (cons 'backing (read-string "Backing (local or online): "))
+	       (cons 'location (read-string (concat "Location (url/doi/whatever for online or file path relative to " shizcow/roamdb-vault-local " for local): "))))))
+
+    ;; Validate
+    (when (string-equal "" (cdr (assoc 'doi tid)))
+      (setq tid (delq (assoc 'doi tid) tid)))
+    
+    (when (not
+	   (or (string-equal "online" (cdr (assoc 'backing tid)))
+	       (string-equal "local" (cdr (assoc 'backing tid)))))
+      (user-error "Only online and local backing types are supported!"))
+
+    ;; Commit
+    (shizcow/create-or-update-transient-identifier tid)
+
+    ;; And for convienience, store to org links
+    (shizcow/and-copy-transient-to-orglinks tid)
+    ))
+#+end_src
+
+**** Utility Functions
+And the below function relates *local* resources to their backing resource file name:
+#+begin_src elisp :results silent
+(defun shizcow/tid-to-local-location (tid)
+  (when (not (string-equal (cdr (assoc 'backing tid)) "local"))
+    (user-error "Called shizcow/tid-to-local-location on a non-local transient resource!"))
+  (concat (file-name-as-directory shizcow/roamdb-vault-local) (cdr (assoc 'location tid))))
+#+end_src
+
+**** Online Example
+Below is a concrete example of a transient identifier pointing to a real paper:
+#+name: transient-ident-example
+#+begin_src elisp :tangle no :eval never
+;; The example identifier, the text contents of which will be written to file
+'((UUID      . "afe9874a-a3b6-43fc-a0ad-17d972031fb6")
+  (title     . "Linear scan register allocation")
+  (filetype  . "pdf")
+  (backing   . "online")
+  ;; Direct link to the PDF:
+  (location  . "https://dl.acm.org/doi/pdf/10.1145/330249.330250")
+  (doi       . "10.1145/330249.330250"))
+#+end_src
+
+The above transient identifier will be automatically inserted into the =ident= directory on Emacs startup (if it does not already exist). This is used both as an example and as a self-check to ensure that the setup contained in this configuration functions properly.
+#+begin_src elisp :results silent :noweb yes
+(let* ((expr-contents
+	;; We load and evaluate to sanity check syntax
+	(eval
+	 (car (read-from-string
+	       ;; We must grab this from noweb instead of
+	       ;; org-babel-expand-noweb-references since
+	       ;; this will be dumped into an elisp init file
+	       (requote
+		;; The below noweb reference MUST be on its OWN LINE
+		<<transient-ident-example>>
+		)))))
+       (uuid (cdr (assoc 'UUID expr-contents)))
+       (filename (shizcow/tid-uuid-to-filename uuid)))
+  (when (not (file-exists-p filename))
+    ;; If the file does not exist... create it!
+    (shizcow/create-or-update-transient-identifier expr-contents))
+  ;; And then sanity check that parsing that file again will pass
+  (let ((expr-contents-2
+	 ;; Using the utility function:
+	 (shizcow/fetch-transient-identifier "afe9874a-a3b6-43fc-a0ad-17d972031fb6")))
+    (when (not (equal expr-contents expr-contents-2))
+      (user-error "Fatal: Sanity check failed when writing and re-reading transient identifier!"))))
+#+end_src
+
+**** Local Example
+Here is another example. This "paper" is a simple text file written to disk.
+#+name: transient-ident-example2
+#+begin_src elisp :tangle no :eval never
+;; The example identifier, the text contents of which will be written to file
+'((UUID      . "3b60e352-ef59-4ecc-8151-38d2bbb8415f")
+  (title     . "Just a little text file")
+  (filetype  . "txt")
+  (backing   . "local")
+  ;; File path to the resource
+  ;; This is relative to shizcow/roamdb-vault-local to encourage sanity
+  (location  . "example_resource.txt"))
+#+end_src
+
+#+name: example-resource-local
+#+begin_src txt
+Here is some text!
+This is an example of a local resource.
+#+end_src
+
+Same as in the online example, the transient identifier is written to disk. Here, also, the =example_resource.txt= file is as well:
+#+begin_src elisp :results silent :noweb yes
+(let* ((expr-contents
+	;; We load and evaluate to sanity check syntax
+	(eval
+	 (car (read-from-string
+	       ;; We must grab this from noweb instead of
+	       ;; org-babel-expand-noweb-references since
+	       ;; this will be dumped into an elisp init file
+	       (requote
+		;; The below noweb reference MUST be on its OWN LINE
+		<<transient-ident-example2>>
+		)))))
+       (uuid (cdr (assoc 'UUID expr-contents)))
+       (filename (shizcow/tid-uuid-to-filename uuid)))
+
+  (when (not (file-exists-p filename))
+    ;; If the file does not exist... create it!
+    (shizcow/create-or-update-transient-identifier expr-contents))
+
+  ;; And then sanity check that parsing that file again will pass
+  (let ((expr-contents-2
+	 ;; Using the utility function:
+	 (shizcow/fetch-transient-identifier "3b60e352-ef59-4ecc-8151-38d2bbb8415f")))
+    (when (not (equal expr-contents expr-contents-2))
+      (user-error "Fatal: Sanity check failed when writing and re-reading transient identifier!")))
+
+
+  (let ((expr-contents2 (string-trim
+	 "
+<<example-resource-local>>
+"))
+	(resname (shizcow/tid-to-local-location expr-contents)))
+    (when (not (file-exists-p resname))
+      (write-region expr-contents2 nil resname)))
+  )
+#+end_src
+
+*** Downloading Resources
+When resources are downloaded, they have a predictable naming scheme:
+#+begin_src elisp
+(defun shizcow/tid-to-transient-location (tid)
+  (concat (file-name-as-directory shizcow/roamdb-vault-transient)
+	  (cdr (assoc 'UUID tid))
+	  (when (not (string-empty-p (cdr (assoc 'filetype tid))))
+	    (concat "." (cdr (assoc 'filetype tid))))))
+#+end_src
+
+The process of downloading a resource is invoked by the =shizcow/visit-tid= function:
+#+begin_src elisp :results silent
+(defun shizcow/url-is-pdf (url)
+  (let ((url-request-method "HEAD")
+        mime-type)
+    (with-current-buffer (url-retrieve-synchronously url)
+      (goto-char (point-min))
+      (if (re-search-forward "^Content-Type: \\(.*\\)$" nil t)
+          (setq mime-type (match-string 1)))
+      (kill-buffer (current-buffer)))
+    (string-prefix-p "application/pdf;" mime-type)))
+
+(defun shizcow/url-is-doi (url)
+  "Check if URL is in DOI format."
+  (string-match-p "^https?://doi\\.org/10\\.[0-9]+/.+" url))
+
+
+;; For when crossref supports multiple resolution
+(setq shizcow/preferred-publishers (list "ieeexplore\\.ieee\\.org"))
+
+(defun shizcow/visit-tid (uuid)
+  (let ((tid (shizcow/fetch-transient-identifier uuid))
+	(open-synchronously t))
+    (when (not (equal (cdr (assoc 'UUID tid)) uuid))
+      (user-error (concat "Visiting transient identifier with filename " uuid " has a non-matching uuid attribute " (cdr (assoc 'UUID tid)))))
+    (let ((dest-loc (shizcow/tid-to-transient-location tid)))
+      ;; First download/link
+      (cond
+       ((string-equal (cdr (assoc 'backing tid)) "online")
+	;; Online resource
+	;; Do download
+	(let ((uri (cdr (assoc 'location tid))))
+	  ;; Note this will download only when needed.
+	  ;; This could cause de-sync if the TID has been changed.
+	  ;; If so, just delete the transient storage directory.
+	  (if (not (file-exists-p dest-loc))
+	      ;; First, we check if the URL points to an actual (pdf) file
+	      (progn
+		(message "Downloading PDF from %s" uri)
+		(cond ((shizcow/url-is-pdf uri)
+		       (progn (message "... directly (this looks like a pdf already)" uri)
+			      (url-copy-file uri dest-loc t)))
+		      ((shizcow/url-is-doi uri)
+		       (progn (message "... via scihub (via doi)" uri)
+			      (let ((scihub-open-after-download t))
+				(setq open-synchronously nil) ;; Disable the after-open
+				;; TODO: if scihub fails do some 2auth or external browser whatever to get a download with login information
+			      (scihub uri dest-loc))))
+		      (t (progn (message "... directly (IDK what this is)" uri)
+				(url-copy-file uri dest-loc t)))))))
+	)
+       ((string-equal (cdr (assoc 'backing tid)) "local")
+	;; Local resource
+	;; Only needs a symlink
+	(let* ((physical-path (shizcow/tid-to-local-location tid)))
+	  ;; Always overwrite these.... TODO check the target location. Deleting and re-writing the file can cause some programs to complain that have the file open.
+	  (when (file-exists-p dest-loc)
+	    (delete-file dest-loc))
+	  (f-symlink physical-path dest-loc)))
+       ((t (user-error (concat "Backing type " (cdr (assoc 'backing tid)) " not supported!"))))
+       )
+      ;; Download complete
+      ;; Mark the time of last reference in the TID file
+      ;; so that cleanup can process correctly
+					; TODO: This
+      ;; And then visit
+      (if open-synchronously
+	  (org-link-open-as-file dest-loc 'system))
+      )))
+#+end_src
+
+*** Linking to Resources
+**** Org Support
+This is nicely wrapped up into org-mode =[[trans:UUID]]= link support, modeled after the [[https://orgmode.org/manual/Adding-Hyperlink-Types.html][Emacs Manual]]:
+#+begin_src elisp :results silent
+(setq shizcow/tuid-link-tag "trans")
+
+(org-link-set-parameters shizcow/tuid-link-tag
+                         :follow #'shizcow/org-trans-open
+                         :export #'shizcow/org-trans-export
+                         :store #'shizcow/org-trans-store-link)
+
+(defun shizcow/org-trans-open (path _)
+  "Visit (and possibly download) a transient resource.
+PATH should be a UUID that has a corresponding transient identifier entry defined."
+  (shizcow/visit-tid path))
+
+(defun shizcow/org-trans-store-link ()
+  "Store a link to a transient identifier's resource contents."
+  (when (string-match (regexp-quote (file-name-as-directory shizcow/roamdb-vault-transient)) (expand-file-name buffer-file-name))
+    (let* ((uuid (shizcow/org-trans-get-uuid))
+           (link (concat shizcow/tuid-link-tag ":" uuid))
+           (description (format "%s" (cdr (assoc 'title (shizcow/fetch-transient-identifier uuid))))))
+      (org-link-store-props
+       :type shizcow/tuid-link-tag
+       :link link
+       :description description))))
+
+(defun shizcow/org-trans-get-uuid ()
+  "Extract the transient identifier UUID from the current buffer's file location."
+  (let ((name (expand-file-name buffer-file-name)))
+    (if (string-match (regexp-quote (file-name-as-directory shizcow/roamdb-vault-transient)) name)
+	(let ((remaining-path (substring name (length (file-name-as-directory shizcow/roamdb-vault-transient)))))
+	  ;; Grab the left-most componento
+	  (while
+	      (if (file-name-directory remaining-path)
+		  (setq remaining-path
+			;; Substring: Strip path char
+			(substring (file-name-directory remaining-path) nil -1))
+		nil))
+	  ;; And turn it into a UUID
+	  (file-name-sans-extension remaining-path))
+      (error "Cannot create link to this tranient identifier page"))))
+
+(defun shizcow/org-trans-export (link description format _)
+  "Export a transient identifier link from Org files."
+  (let ((desc (or description (cdr (assoc 'title (shizcow/fetch-transient-identifier link))))))
+    (format "%s" desc)))
+#+end_src
+
+***** Example
+
+An example link looks like this:
+#+begin_quote
+[[trans:afe9874a-a3b6-43fc-a0ad-17d972031fb6][Linear scan register allocation]] is a good paper. Opening this link in Emacs will download the paper on the fly. Cool!
+
+And [[trans:3b60e352-ef59-4ecc-8151-38d2bbb8415f][this file]] is an example of a local resource. Opening this link in Emacs will create a symlink on the fly.
+#+end_quote
+
+As with raw pdf links, this is not super useful for bibtex but is great for roam-like notes.
+
+**** Storing Links
+The above can be simply called with =org-store-link= when visiting a file located inside of the =transient= directory. To link a file not yet created, interactively call the following while visiting the transient identifier =.tid= file:
+#+begin_src elisp :results silent
+(defun shizcow/org-store-target-tid nil
+  (interactive)
+  (let* ((tid (eval
+	       (car (read-from-string
+		     (buffer-string)))))
+	 (uuid (cdr (assoc 'UUID tid)))
+	 (link (concat shizcow/tuid-link-tag ":" uuid))
+	 (desc (format "%s" (cdr (assoc 'title tid)))))
+    (if (member (list link desc) org-stored-links)
+	(message "This link has already been stored")
+      (push (list link desc) org-stored-links)
+      (message "Stored: %s" (or desc link)))))
+#+end_src
+
+*** Manipulating Identifier
+**** Visiting Underlying Transient Identifier
+It is sometimes useful to directly visit the transient identifier associated with the link at the current point. Calling =shizcow/open-tuid-at-point= will accomplish that:
+#+begin_src elisp :results silent
+(defun shizcow/get-tid-uuid-at-point nil
+  (cond
+   ((org-in-regexp org-link-bracket-re 1)
+    (let ((link (when (match-end 2) (match-string-no-properties 1))))
+      (when (not link) (user-error "Link at point is malformed!"))
+      (if (string-match (concat "^" shizcow/tuid-link-tag ":") link)
+	  ;; And return the UUID
+	  (substring link (length (concat shizcow/tuid-link-tag ":")))
+	(user-error "Link does not point to a transient identifier!"))))
+   (t (user-error "No link at point!"))))
+
+
+(defun shizcow/open-tuid-at-point nil
+  "Open the underlying transient identifier file associated with the link at point"
+  (interactive)
+  (find-file (shizcow/tid-uuid-to-filename (shizcow/get-tid-uuid-at-point))))
+#+end_src
+**** Visiting DOI
+If the transient identifier was specified with a DOI, then it is (easily) accessible from the web. =shizcow/tid-visit-doi= will open that link in a browser:
+#+begin_src elisp :results silent
+(defun shizcow/tid-visit-doi nil
+  "If the associated transient identifier in the link at point has a DOI field, visit the document online"
+  (interactive)
+  (let* ((doi
+	  (cdr (assoc 'doi (shizcow/fetch-transient-identifier (shizcow/get-tid-uuid-at-point)))))
+	 (url (concat "https://doi.org/" doi)))
+    (browse-url url)))
+#+end_src
+
+** Enhanced Node Properties
+Eventually, I want to have rich information in the properties of each node. In order to open the door for future expansion, I've decided to version my headers via the =ROAM_ENHANCED_HEADER_VER= org property.
+
+The following subsections define the code to define each version, gather the additional info placed into the headers, and interop between versions.
+
+But first, the target variable defines the target version. This is the version that will be used for new template files and as a target for upgrading existing files.
+*** Target Version
+This is the version that Emacs will attempt to use when creating a new org-roam node.
+#+begin_src emacs-lisp :results silent
+(setq shizcow/org-roam-enhanced-header-target-ver '((major . 1) (minor . 3)))
+#+end_src
+
+*** Setup Commands
+The following source code block defines how the enhanced header version makes it into the roam nodes.
+#+begin_src emacs-lisp
+(setq shizcow/org-roam-enhanced-header-prefix "ROAM_ENHANCED_HEADER_")
+(setq shizcow/org-roam-enhanced-header-ver-name
+      (concat shizcow/org-roam-enhanced-header-prefix "VER"))
+(defun shizcow/org-roam-enhanced-header-ver-to-str (ver)
+  (format "%s.%s" (cdr (assoc 'major ver)) (cdr (assoc 'minor ver))))
+(defun shizcow/org-roam-enhanced-header-get-ver-str ()
+  (shizcow/org-roam-enhanced-header-ver-to-str shizcow/org-roam-enhanced-header-target-ver))
+#+end_src
+
+The following source code block defines basic functions for working with the defined semantic versioning system. It's pretty basic as to be self-contained within the config.
+#+begin_src emacs-lisp :results silent
+(defun shizcow/org-roam-enhanced-header-semver-compare (a b)
+  "Compares a with b. Returns 0 if equal. If a less than b, returns -1. If a less than b and breaking (different major version) returns -2. If a greater than b, returns 1. If a greater than b and breaking (different major version) returns 2"
+  (cond ((< (cdr (assoc 'major a)) (cdr (assoc 'major b))) -2)
+	((> (cdr (assoc 'major a)) (cdr (assoc 'major b))) 2)
+	((< (cdr (assoc 'minor a)) (cdr (assoc 'minor b))) -1)
+	((> (cdr (assoc 'minor a)) (cdr (assoc 'minor b))) 1)
+	(t 0))
+  )
+(defun shizcow/org-roam-enhanced-header-semver-same (a b)
+  (= 0 (shizcow/org-roam-enhanced-header-semver-compare a b)))
+(defun shizcow/org-roam-enhanced-header-target-ver-is (a)
+  (= 0 (shizcow/org-roam-enhanced-header-semver-compare a shizcow/org-roam-enhanced-header-target-ver)))
+#+end_src
+
+*** How versions are loaded
+Within a major version, all code blocks are tangled/executed up to the given minor version. Because minor versions are not supposed to be breaking, re-definition of existing functions and variables will keep functionality from breaking.
+
+Multiple startup functions can be defined, each of which are registered to a version with =shizcow/org-roam-enhanced-header-register-fun=. At the end of this section is the elisp code to commit the filtering. Functions can have arbitrary names.
+
+In the event that an exact snippet of code needs to be used from a different major version, noweb syntax is used.
 
 #+begin_src emacs-lisp :results silent
-(org-babel-do-load-languages
- 'org-babel-load-languages
- '((matlab . t) (python . t)))
+(defun shizcow/org-roam-enhanced-header-register-fun (f v)
+  (unless (boundp 'shizcow/org-roam-enhanced-header-registry)
+    (setq shizcow/org-roam-enhanced-header-registry '()))
+  (add-to-list 'shizcow/org-roam-enhanced-header-registry (list f v)))
 #+end_src
-** Latex Previews
-The default behavior of in-buffer latex previews leaves a lot left to be desired.
-First off, previews do not scale with the surrounding text. Second off, you can't
-get good live previews. The solution, in two parts is as follows: change the
-scale and also use [[https://github.com/yangsheng6810/org-latex-impatient][org-latex-impatient]].
+
+*** Updating
+If roam encounters a node that was created in a previous version, support is included to upgrade from old versions to new versions. This is done via the =shizcow/org-roam-upgrades= list:
+#+begin_src emacs-lisp
+(defvar shizcow/org-roam-upgrades '()
+  "Stores a list of org-roam-enhanced-header upgrade functions.
+
+Each element of the list is an alist with the following associations:
+- from:    Major version FROM, e.g. '((major . 0) (minor 0))
+- to:      Major version TO,   e.g. '((major . 1) (minor 5))
+- upgrade: Upgrade function, which executes within the org buffer immediately after opening
+
+If the result of the upgrade function is non-nil, the value of the enhanced header version will be incremented to match the version TO parameter.
+
+Upgrades will be attempted on major versions then minor versions. For example, if the target version is 6.2 and the current version is 4.1, then the upgrade path will go (from 4.0 to 5.0) -> (from 5.0 to 6.0) -> (from 6.0 to 6.1) -> (from 6.1 to 6.2).
+
+If a required upgrade path is encountered but a function not provided, a warning will be displayed.
+
+Multiple upgrade functions for a distinct version pair are not allowed; an error will be thrown if an attempt is made to register multiple functions at the same FROM and TO version. Version stepping is also enforced -- the maximum upgrade distance is a single major version.")
+#+end_src
+
+#+RESULTS:
+: shizcow/org-roam-upgrades
+
+*** 0.0 - Origin
+The origin version has no info included and no special integrations defined. It only adds the version number to the template file. This ensures future updates to be smooth.
+
+#+begin_src emacs-lisp :results silent
+(defun shizcow/org-roam-enhanced-header-0-0-init ()
+  (setq org-roam-capture-templates
+        '(("d" "default" plain
+           "%?"
+           :if-new (file+head "${slug}.org"
+                              ":PROPERTIES:
+:%(identity shizcow/org-roam-enhanced-header-ver-name): %(shizcow/org-roam-enhanced-header-get-ver-str)
+:END:
+,#+title: ${title}\n")
+           :immediate-finish t
+           :unnarrowed t))))
+
+(shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-0-0-init '((major . 0) (minor . 0)))
+#+end_src
+
+*** 1.0 - Node Types and Upgrading
+This version defines additional template classes and embeds the note type in the header information. With these changes, adding additional note types will be easy.
+
+#+begin_src emacs-lisp :results silent
+(defun shizcow/org-roam-enhanced-header-1-0-init ()
+
+  ;; Clear this variable (this is the version base, afterall)
+  (setq org-roam-capture-templates '())
+  ;; Define a utility function for adding new capture templates
+  ;; This function will be available to future subversions
+  (defun shizcow/org-roam-add-template-type (template-items path-spec &optional title-str additional-props)
+    "Adds an entry to org-roam-capture-templates, adding a property for the enhanced header version"
+    (setq template-items
+	  (append template-items
+		  (list :if-new	
+			(list 'file+head path-spec
+			      (concat ":PROPERTIES:
+:%(identity shizcow/org-roam-enhanced-header-ver-name): %(shizcow/org-roam-enhanced-header-get-ver-str)
+:%(concat shizcow/org-roam-enhanced-header-prefix \"TYPE\"): " (nth 1 template-items) "\n"
+(when additional-props (concat additional-props "\n"))
+":END:\n"
+(if title-str (concat "#+title: " title-str "\n") "#+title: ${title}\n")))
+			:immediate-finish t
+			:unnarrowed t)))
+    (add-to-list 'org-roam-capture-templates template-items t))
+
+  (shizcow/org-roam-add-template-type
+   '("d" "default" plain "%?")
+   "${slug}.org")
+
+  (shizcow/org-roam-add-template-type
+   '("r" "reference" plain "%?")
+   "%(concat
+     (when citar-org-roam-subdir (concat citar-org-roam-subdir \"/\")) \"${citar-citekey}.org\")")
+  )
+
+(shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-0-init '((major . 1) (minor . 0)))
+#+end_src
+
+Additionally, defined below is a means of upgrading notes.
+: Room for improvement: can we lift the node type from the title and fall back to org-mks if that fails?
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(defun shizcow/org-roam-upgrade-0-0-to-1-0 ()
+  (let* ((note-entry
+	  (org-mks org-roam-capture-templates
+		   "ATTENTION NEEDED: Upgrading Node
+=========================
+This org-roam node needs upgrading from 0.0 to 1.0
+Please select the type of this node. This information will be encoded in the properties drawer of this node.
+
+If this type of node is not in the list below, a template needs to be added to `org-roam-capture-templates'.
+=========================
+
+Template key:"
+		   "Node Upgrade Prompt"
+		   '(("q" "Ignore upgrade (until next open)"))))
+	 (note-type (when (not (and (stringp note-entry) (string-equal "q" note-entry)))
+		      (nth 1 note-entry))))
+    (when note-type
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "TYPE") note-type)
+      t)
+    ))
+
+(add-to-list 'shizcow/org-roam-upgrades
+	     (cl-pairlis '(from to upgrade)
+			 (list
+			  '((major . 0) (minor . 0))
+			  '((major . 1) (minor . 0))
+			  #'shizcow/org-roam-upgrade-0-0-to-1-0)))
+#+end_src
+
+*** 1.1 - Project, Course, and Assignment
+This version adds the =project=, =course=, and =assignment= templates. The =assignment= template is special, as it requires a =course= node to be defined. During capture, org-roam will provide an auto-completing list of course nodes. Note that these are filtered by a regex match within the title (and not the =<prefix>_COURSE_TITLE= property -- room for improvement). After creation, it will pre-populate =ROAM_REFS= with a pointer to the canonical course node. Unfortunately, this ref does not render as an edge in =org-roam-ui= -- room for improvement.
+
+#+begin_src emacs-lisp
+(defun shizcow/org-roam-enhanced-header-1-1-init ()
+  (shizcow/org-roam-add-template-type
+   '("P" "project" plain "%?")
+   "${slug}.org"
+   "Project: %\\1"
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"PROJECT_TITLE\"): %^{Project Title}"))
+  
+  (shizcow/org-roam-add-template-type
+   '("c" "course" plain "%?")
+   "${slug}.org"
+   "Course: %\\1"
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"COURSE_TITLE\"): %^{Course Title}"))
+
+  (shizcow/org-roam-add-template-type
+   '("a" "assignment" plain "%?")
+   "${slug}.org"
+   ;; Input hacks
+   "Assignment: %(identity shizcow/transient/org-roam-course): %\\1"
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"ASSIGNMENT_COURSE\"): %(progn (setq shizcow/transient/org-roam-node (org-roam-node-read nil (lambda (node) (string-match \"^Course: .*$\" (org-roam-node-title node))) nil t \"Course Node: \")) (setq shizcow/transient/org-roam-course (when (string-match \"^Course: \\\\(.*\\\\)$\" (org-roam-node-title shizcow/transient/org-roam-node)) (match-string 1 (org-roam-node-title shizcow/transient/org-roam-node)))))\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"ASSIGNMENT_TITLE\"): %^{Assignment Title}\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"ASSIGNMENT_LINK\"): %^{Canvas Link}\n"
+	   ":ROAM_REFS: id:%(cdr (cl-find-if (lambda (a) (cl-equalp (car a) \"ID\")) (org-roam-node-properties shizcow/transient/org-roam-node)))")))
+
+(shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-1-init '((major . 1) (minor . 1)))
+#+end_src
+
+And the upgrade functions for them:
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(defun shizcow/org-roam-upgrade-1-0-to-1-1 ()
+  ;; Project nodes
+  (let* ((doc-title (nth 1 (nth 0 (org-collect-keywords '("TITLE")))))
+	 (project-title (when (string-match "Project: \\(.*$\\)" doc-title)
+			  (match-string 1 doc-title))))
+    (when project-title
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "PROJECT_TITLE") project-title)))
+  ;; Course nodes
+  (let* ((doc-title (nth 1 (nth 0 (org-collect-keywords '("TITLE")))))
+	 (course-title (when (string-match "Course: \\(.*$\\)" doc-title)
+			  (match-string 1 doc-title))))
+    (when course-title
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "COURSE_TITLE") course-title)))
+  t)
+
+(add-to-list 'shizcow/org-roam-upgrades
+	     (cl-pairlis '(from to upgrade)
+			 (list
+			  '((major . 1) (minor . 0))
+			  '((major . 1) (minor . 1))
+			  #'shizcow/org-roam-upgrade-1-0-to-1-1)))
+#+end_src
+
+*** 1.2 - Meeting
+This version defines the =meeting= note type. Any node can be optionally defined as reference (eg, meetings for a project or meetings as a part of an organization). A meeting topic is required (eg My Weekly Meeting).
+
+#+begin_src emacs-lisp
+(defun shizcow/org-roam-enhanced-header-1-2-init ()
+  (shizcow/org-roam-add-template-type
+   '("m" "meeting" plain "%?")
+   "${slug}.org"
+   ;; Input hacks
+   "Meeting: %\\1 - %\\2"
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"MEETING_TOPIC\"): %^{Meeting Topic}\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"MEETING_DATE\"): %^{Meeting Date|%(format-time-string \"%Y/%m/%d\" (current-time))}\n"
+	   ":ROAM_REFS: %(when (setq shizcow/transient/org-roam-node (org-roam-node-read nil nil nil nil \"Meeting Reference Node (Optional): \")) (concat \"id:\" (cdr (cl-find-if (lambda (a) (cl-equalp (car a) \"ID\")) (org-roam-node-properties shizcow/transient/org-roam-node)))))")))
+
+(shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-2-init '((major . 1) (minor . 2)))
+#+end_src
+
+For the upgrade function, the meeting topic isn't very well defined. Therefore, ask the user for some input.
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(defun shizcow/org-roam-upgrade-1-1-to-1-2 ()
+  ;; Meeting nodes
+  (let* ((doc-title (org-get-title))
+	 (meeting-title (when (string-match "Meeting: \\(.*$\\)" doc-title)
+			  (match-string 1 doc-title))))
+    (when meeting-title
+      ;; Input for the reference node
+      (let* ((org-roam-node (org-roam-node-read nil nil nil nil "Upgrading from 1.1 to 1.2: Input a reference node for this meeting (optional): "))
+	     (node-title (cdr (cl-find-if (lambda (a) (cl-equalp (car a) "ID")) (org-roam-node-properties org-roam-node)))))
+	(when node-title
+	  (org-roam-ref-add (concat "id:" node-title)
+			    )))
+      ;; Input for the meeting topic and date
+      (let ((topic (read-from-minibuffer "Meeting topic: "))
+	    (date (read-from-minibuffer "Meeting date (YYYY/MM/DD): ")))
+	(when (not (and topic date))
+	  (user-error "A meeting topic and a meeting date are required!"))
+	(org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "MEETING_TOPIC") topic)
+	(org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "MEETING_DATE") date)
+	;; Now, fix the title
+	(org-with-point-at 1
+	  (let* ((keywords '("TITLE"))
+		 (case-fold-search t)
+		 (regexp (org-make-options-regexp keywords)))
+	    (while (and keywords (re-search-forward regexp nil t))
+	      (let* ((element (org-element-at-point))
+		     (new-element-text (org-element-interpret-data (org-element-put-property element :value (concat "Meeting: " topic " - " date)))))
+		(kill-whole-line)
+		(insert new-element-text))))))))
+  t)
+
+(add-to-list 'shizcow/org-roam-upgrades
+	     (cl-pairlis '(from to upgrade)
+			 (list
+			  '((major . 1) (minor . 1))
+			  '((major . 1) (minor . 2))
+			  #'shizcow/org-roam-upgrade-1-1-to-1-2)))
+#+end_src
+
+*** 1.3 - Transient Papers
+This version defines the =paper= note type. A doi or URL is given -- the PDF is then downloaded and a bibtex entry prepared. The roam node is now a note document for the paper.
+
+#+begin_src emacs-lisp :results silent
+(defun shizcow/org-roam-enhanced-header-1-3-init ()
+  (shizcow/org-roam-add-template-type
+   '("p" "paper" plain "%?")
+   "${slug}.org"
+   (concat "Paper: %(identity shizcow/transient/title)\n"
+	   ; Title hacks
+	   "Paper PDF here: [[%(nth 0 shizcow/transient/tid-org-link)][%(nth 1 shizcow/transient/tid-org-link)]]")
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"DOI\"): %(setq shizcow/transient/doi (shizcow/try-doi-from (read-from-minibuffer \"Paper link -- DOI (preferred), publisher (will try to get DOI), direct (will not support bibtex): \")))\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER\"): %(progn
+(setq shizcow/transient/tid
+(list (cons 'UUID (shizcow/new-tid-uuid))
+	       (cons 'title (setq shizcow/transient/title (shizcow/doi-to-title shizcow/transient/doi)))
+	       (cons 'filetype \"pdf\")
+	       (cons 'backing \"online\")
+	       (cons 'location shizcow/transient/doi)))
+    (shizcow/create-or-update-transient-identifier shizcow/transient/tid)
+    (setq shizcow/transient/tid-org-link (shizcow/orglink-from-tid shizcow/transient/tid))
+    (setq shizcow/transient/tuid (cdr (assoc 'UUID shizcow/transient/tid)))
+    (format \"\\%s\" shizcow/transient/tuid)
+    )\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER_VAULTFILE\"): [[%(shizcow/tid-uuid-to-filename shizcow/transient/tuid)][%(concat (substring (format \"\\%s\" shizcow/transient/tuid) 0 4) \"...\")]]\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER_RESOURCE\"): [[%(nth 0 shizcow/transient/tid-org-link)][%(nth 1 shizcow/transient/tid-org-link)]]")))
+
+(shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-3-init '((major . 1) (minor . 3)))
+#+end_src
+
+Upgrading from version 1.2 to 1.3 involves removing the =reference= node type.
+It's superseded by the new =paper= type -- I like the one I've written more than =citar-org-roam='s solution.
+Upgrading involves adding the =DOI= and =TRANSIENT_IDENTIFIER*= fields.
+The =ROAM_REFS= field will be untouched, as it will (eventually) be folded into the transient identifier.
+AKA, the bibtex entries here will be out of date.
+This will be fixed in a future version.
+
+The easiest way to code this is to ask for the DOI of the paper given the title, but we can also query crossref for the paper title and give a few options.
+
+#+begin_src emacs-lisp :results silent
+(require 'cl-lib)
+(defun shizcow/org-roam-upgrade-1-2-to-1-3 ()
+  (when
+      ;; Upgrade "reference" nodes to "paper nodes"
+      (string= (shizcow/get-toplevel-org-property (concat shizcow/org-roam-enhanced-header-prefix "TYPE"))
+	       "reference")
+    ;; Then get the title of the paper
+    (let* ((title (shizcow/get-org-title))
+	   (title-guess
+	    (if (string-match "Paper: \\(.*?\\) - " title)
+		(match-string 1 title)
+	      title))
+	   (shizcow/transient/doi-or-url (shizcow/prompt-url-from-crossref-search title-guess (format "[Upgrading] Select the paper from crossref that this node corresponds to (or manually type DOI/direct link if not found): \"%s\"" title)))
+	   )
+      (setq shizcow/transient/tid
+	    (list (cons 'UUID (shizcow/new-tid-uuid))
+		  (cons 'title (setq shizcow/transient/title
+				     (if (shizcow/url-is-doi shizcow/transient/doi-or-url)
+					 (shizcow/doi-to-title shizcow/transient/doi-or-url)
+				       title-guess)))
+		  (cons 'filetype "pdf")
+		  (cons 'backing "online")
+		  (cons 'location shizcow/transient/doi-or-url)))
+      (shizcow/create-or-update-transient-identifier shizcow/transient/tid)
+      
+      (setq shizcow/transient/tid-org-link (shizcow/orglink-from-tid shizcow/transient/tid))
+      (setq shizcow/transient/tuid (cdr (assoc 'UUID shizcow/transient/tid)))
+
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "TRANSIENT_IDENTIFIER")
+		     (format "%s" shizcow/transient/tuid))
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "TRANSIENT_IDENTIFIER_VAULTFILE")
+		     (format "[[%s][%s]]"
+			     (shizcow/tid-uuid-to-filename shizcow/transient/tuid)
+			     (concat (substring (format "%s" shizcow/transient/tuid) 0 4) "...")))
+      (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "TRANSIENT_IDENTIFIER_RESOURCE")
+		     (format "[[%s][%s]]"
+			     (nth 0 shizcow/transient/tid-org-link)
+			     (nth 1 shizcow/transient/tid-org-link)))
+
+      ;; And mofify the title (we don't need the author information anymore)
+      (shizcow/change-org-buffer-title (concat "Paper: " shizcow/transient/title))
+      )
+    
+    ;; Finally, change the type to "paper"
+    (org-entry-put (point-min) (concat shizcow/org-roam-enhanced-header-prefix "TYPE") "paper")
+    )
+  t)
+
+(add-to-list 'shizcow/org-roam-upgrades
+	     (cl-pairlis '(from to upgrade)
+			 (list
+			  '((major . 1) (minor . 2))
+			  '((major . 1) (minor . 3))
+			  #'shizcow/org-roam-upgrade-1-2-to-1-3)))
+#+end_src
+
+*** Running version functions
+As promised, filter through the registered functions and execute those that are necessary. All functions within the same major version are executed.
+
+#+begin_src emacs-lisp :results silent
+(mapcar (lambda (x) (progn
+		      (message "Running Roam init function %s" (symbol-name (car x)))
+		      (funcall (car x))))
+	(cl-sort
+	 (cl-remove-if-not (lambda (x)
+			     (let ((v-compare (shizcow/org-roam-enhanced-header-semver-compare (nth 1 x) shizcow/org-roam-enhanced-header-target-ver)))
+			       (or (= 0 v-compare) (= -1 v-compare))))
+			   shizcow/org-roam-enhanced-header-registry)
+	 (lambda (a b)
+	   (shizcow/org-roam-enhanced-header-semver-compare (nth 1 a) (nth 1 b)))))
+#+end_src
+
+Now that all of the definitions are in place, prepare the upgrade functions. Upgrading is done by defining advice to run after =org-roam-node-open=. The current and target versions are compared, and if they differ the upgrade logic is triggered.
+
+#+begin_src emacs-lisp
+(defun shizcow/org-roam-get-node-ver-str-from-current-buffer ()
+  (org-entry-get (point-min) shizcow/org-roam-enhanced-header-ver-name))
+(defun shizcow/org-roam-semver-from-str (ver-str)
+  (require 'cl-lib)
+  (let* ((ver-parts (split-string ver-str "\\.")))
+    (cl-pairlis '(major minor)
+		(list (string-to-number (nth 0 ver-parts)) (string-to-number (nth 1 ver-parts))))
+    ))
+(defun shizcow/org-roam-get-node-ver-semver-from-current-buffer ()
+  (shizcow/org-roam-semver-from-str (shizcow/org-roam-get-node-ver-str-from-current-buffer)))
+
+(defun shizcow/org-roam-node-upgrade-advice (&rest r)
+  (require 'cl-lib)
+  (let* ((current-ver (shizcow/org-roam-get-node-ver-semver-from-current-buffer))
+	 (target-ver shizcow/org-roam-enhanced-header-target-ver)
+	 (v-compare (shizcow/org-roam-enhanced-header-semver-compare current-ver target-ver))
+	 (conversion-strategy
+	  ;; Build the list of upgrade functions to call
+	  (cl-reduce (lambda (acc cur) (append acc cur))
+		     (remove nil
+			     (list
+			      (when (>= v-compare 1)
+				(message "Warning: the target enhanced header version is greater than the current version in the file. Some features may not work properly."))
+			      (when (<= v-compare -2)
+				;; Needs major version upgrade
+				;; Try to step up in major versions from current.0 to target.0
+				(cl-mapcar
+				 (lambda (from-ver)
+				   (cl-pairlis '(from to)
+					       (list
+						(cl-pairlis '(major minor) (list from-ver 0))
+						(cl-pairlis '(major minor) (list (+ 1 from-ver) 0))))
+				   )
+				 (number-sequence (cdr (assoc 'major current-ver)) (- (cdr (assoc 'major target-ver)) 1))))
+			      (when (<= v-compare -1)
+				;; Needs minor version upgrade
+				;; This can be triggered from either a major version upgrade
+				;; (hence the <= comparison) or from simply a minor version upgrage
+				(cl-mapcar
+				 (lambda (from-ver)
+				   (cl-pairlis '(from to)
+					       (list
+						(cl-pairlis '(major minor) (list (cdr (assoc 'major target-ver)) from-ver))
+						(cl-pairlis '(major minor) (list (cdr (assoc 'major target-ver)) (+ 1 from-ver)))))
+				   )
+				 ;; Specifically, we need to step up from either 0 (if there was a major version update) or the current minor version
+				 (number-sequence (if (<= v-compare -2) 0 (cdr (assoc 'minor current-ver))) (- (cdr (assoc 'minor target-ver)) 1))))))
+		     :initial-value '()))
+	 (conversion-specs
+	  (cl-mapcar
+	   (lambda (version-spec)
+	     (let ((found-spec
+		    (cl-find-if
+		     (lambda (upgrade-spec)
+		       (and
+			(= 0 (shizcow/org-roam-enhanced-header-semver-compare
+			      (cdr (assoc 'from upgrade-spec)) (cdr (assoc 'from version-spec))))
+			(= 0 (shizcow/org-roam-enhanced-header-semver-compare
+			      (cdr (assoc 'to upgrade-spec)) (cdr (assoc 'to version-spec))))))
+		     shizcow/org-roam-upgrades)))
+	       (if (not found-spec)
+		   (user-error "Need to upgrade from %S to %S but an upgrade function was not found within shizcow/org-roam-upgrades for that version change"
+			       (shizcow/org-roam-enhanced-header-ver-to-str (cdr (assoc 'from version-spec)))
+			       (shizcow/org-roam-enhanced-header-ver-to-str (cdr (assoc 'to   version-spec))))
+		 (list found-spec
+		       (shizcow/org-roam-enhanced-header-ver-to-str (cdr (assoc 'from version-spec)))
+		       (shizcow/org-roam-enhanced-header-ver-to-str (cdr (assoc 'to   version-spec)))))))
+	   conversion-strategy)))
+    (cl-mapcar (lambda (spec)
+		 (message "[Enhanced Roam] Attempting to upgrade from %s to %s"
+			  (nth 1 spec) (nth 2 spec))
+		 (if (funcall (cdr (assoc 'upgrade (nth 0 spec))))
+		     (org-entry-put (point-min) shizcow/org-roam-enhanced-header-ver-name (shizcow/org-roam-enhanced-header-ver-to-str (cdr (assoc 'to (nth 0 spec)))))
+		   (user-error "[Enhanced Roam] Upgrade failed! Aborting upgrade and leaving document un-touched.")))
+	       conversion-specs)))
+
+(advice-add 'org-roam-node-open :after 'shizcow/org-roam-node-upgrade-advice)
+#+end_src
+
+#+RESULTS:
+
+Now, instead of =advice-add='ing ='org-roam-node-open=, we just define a hook for opening the file directly.
+This way, any visit of the file will trigger the upgrade prompt.
+This includes an org-roam open or a direct file open. So long as the property =ROAM_ENHANCED_HEADER_VER= exists and the file is within the correct directory, an upgrade check will be issued.
 
 #+begin_src elisp :results silent
-(defun update-org-latex-fragment-scale ()
-  (let ((text-scale-factor (expt text-scale-mode-step text-scale-mode-amount)))
-    (plist-put org-format-latex-options :scale (* 1.7 text-scale-factor))
-    (setq org-latex-impatient-scale (* 2.6 text-scale-factor))
-    (org-latex-preview '(16)))
-  )
+(defun shizcow/file-in-org-roam-directory-p ()
+  "Check if the current buffer's file is in the `org-roam-directory`."
+  (and buffer-file-name
+       (string-prefix-p (expand-file-name (file-name-as-directory org-roam-directory))
+                        (file-name-directory buffer-file-name))))
 
-;; Posframe needs to be manually configured
-;; If not done, it will move the mouse to a different part of the screen
-;; which is super annoying and doesn't fix anything on my wm
-(use-package posframe
-  :init
-  (setq posframe-mouse-banish nil))
+(defun shizcow/check-roam-upgrade-hook ()
+  (when (and
+	 ;; Check that this file is in the roam database
+	 (shizcow/file-in-org-roam-directory-p)
+	 ;; And also that it has a well formed header (not all files here are nodes)
+	 (shizcow/get-toplevel-org-property shizcow/org-roam-enhanced-header-ver-name))
+    (shizcow/org-roam-node-upgrade-advice)))
 
-(use-package org-latex-impatient
-  :after posframe
-  :after org
-  :hook (org-mode . org-latex-impatient-mode)
-  :hook (org-mode . update-org-latex-fragment-scale)
-  :init
-  (setq org-latex-impatient-tex2svg-bin
-        ;; location of tex2svg executable
-        "~/node_modules/mathjax-node-cli/bin/tex2svg")
-  (setq org-latex-impatient-border-color "white")
-  (setq org-latex-impatient-user-latex-definitions
-        ;; MathJax sucks and I really like using siunitx
-        ;; Luckily, I can live with the most basic features
-        ;; While the below is far from perfect, it is good
-        ;; enough for a quick preview. C-c C-x l will give
-        ;; a more acurate preview
-        '("\\newcommand{\\ensuremath}[1]{#1}" 
-          "\\newcommand{\\usepackage}[1]{}"
-          "\\newcommand{\\yocto}{\\text{y}}"
-          "\\newcommand{\\zepto}{\\text{z}}"
-          "\\newcommand{\\atto}{\\text{a}}"
-          "\\newcommand{\\femto}{\\text{f}}"
-          "\\newcommand{\\pico}{\\text{p}}"
-          "\\newcommand{\\nano}{\\text{n}}"
-          "\\newcommand{\\micro}{\\mu}"
-          "\\newcommand{\\milli}{\\text{m}}"
-          "\\newcommand{\\centi}{\\text{c}}"
-          "\\newcommand{\\deci}{\\text{d}}"
-          "\\newcommand{\\deca}{\\text{da}}"
-          "\\newcommand{\\hecto}{\\text{h}}"
-          "\\newcommand{\\kilo}{\\text{k}}"
-          "\\newcommand{\\mega}{\\text{M}}"
-          "\\newcommand{\\giga}{\\text{G}}"
-          "\\newcommand{\\tera}{\\text{T}}"
-          "\\newcommand{\\peta}{\\text{P}}"
-          "\\newcommand{\\exa}{\\text{E}}"
-          "\\newcommand{\\zetta}{\\text{Z}}"
-          "\\newcommand{\\yotta}{\\text{Y}}"
-          "\\newcommand{\\ampere}{\\text{A}}"
-          "\\newcommand{\\candela}{\\text{cd}}"
-          "\\newcommand{\\kelvin}{\\text{K}}"
-          "\\newcommand{\\kilogram}{\\text{kg}}"
-          "\\newcommand{\\gram}{\\text{g}}"
-          "\\newcommand{\\metre}{\\text{m}}"
-          "\\newcommand{\\mole}{\\text{mol}}"
-          "\\newcommand{\\second}{\\text{s}}"
-          "\\newcommand{\\becqerel}{Bq}"
-          "\\newcommand{\\degreeCelsius}{^\\circ\\text{C}}"
-          "\\newcommand{\\columb}{\\text{C}}"
-          "\\newcommand{\\farad}{\\text{F}}"
-          "\\newcommand{\\gray}{\\text{Gy}}"
-          "\\newcommand{\\hertz}{\\text{Hz}}"
-          "\\newcommand{\\henry}{\\text{H}}"
-          "\\newcommand{\\joule}{\\text{J}}"
-          "\\newcommand{\\lumen}{\\text{lm}}"
-          "\\newcommand{\\katal}{\\text{kat}}"
-          "\\newcommand{\\lux}{\\text{lx}}"
-          "\\newcommand{\\newton}{\\text{N}}"
-          "\\newcommand{\\ohm}{\\Omega}"
-          "\\newcommand{\\pascal}{\\text{Pa}}"
-          "\\newcommand{\\radian}{\\text{rad}}"
-          "\\newcommand{\\siemens}{\\text{S}}"
-          "\\newcommand{\\sievert}{\\text{Sv}}"
-          "\\newcommand{\\steradian}{\\text{sr}}"
-          "\\newcommand{\\tesla}{\\text{T}}"
-          "\\newcommand{\\volt}{\\text{V}}"
-          "\\newcommand{\\watt}{\\text{W}}"
-          "\\newcommand{\\weber}{\\text{Wb}}"
-          "\\newcommand{\\SI}[2]{#1\\hspace{0.5ex}#2}")))
+(add-hook 'org-mode-hook 'shizcow/check-roam-upgrade-hook)
 #+end_src
-** Org-Ref
+
+A positive side-affect of the above is that by calling =org-mode= or =org-mode-restart=, upgrades will be attempted again.
+
+** Graph
+Yes I need to see the graph. I'll probably replace this with something functional at some point.
 #+begin_src emacs-lisp :results silent
-(use-package org-ref
-  :after org
-  :init
-  (setq org-ref-bibliography-notes "~/Documents/org-ref/notes.org"
-        org-ref-default-bibliography '("~/Documents/org-ref/references.bib")
-        org-ref-pdf-directory "~/Documents/org-ref/bibtex-pdfs/")
-
-  (unless (file-exists-p org-ref-pdf-directory)
-    (make-directory org-ref-pdf-directory t))
-
-  (setq bibtex-autokey-year-length 4
-        bibtex-autokey-name-year-separator "-"
-        bibtex-autokey-year-title-separator "-"
-        bibtex-autokey-titleword-separator "-"
-        bibtex-autokey-titlewords 2
-        bibtex-autokey-titlewords-stretch 1
-        bibtex-autokey-titleword-length 5)
-  (require 'org-ref)
-  (require 'org-ref-pdf)
-  (require 'org-ref-url-utils)
-  )
-
+(use-package org-roam-ui
+  :after org-roam
+  ; :hook (after-init . org-roam-ui-mode)
+  :config
+    (setq org-roam-ui-sync-theme t
+          org-roam-ui-follow t
+          org-roam-ui-update-on-save t
+          org-roam-ui-open-on-start t))
 #+end_src
 
 * Filesystem Clutter
@@ -859,21 +3213,7 @@ Also, it's a soft dependency of lsp.
   :after exec-path-from-shell)
 #+end_src
 ** LSP
-I dislike __most__ of LSP's functionality. It's too distracting when my buffers get resized and my text moved around. This disables it, while keeping what I consider to be the good features. There will be much more configuration in the future.
-#+begin_src emacs-lisp :results silent
-(use-package lsp-mode
-  :after flycheck
-  :init
-  (setq lsp-signature-render-documentation nil))
-(use-package lsp-ui
-  :after lsp-mode
-  :init
-  (setq lsp-ui-doc-enable nil)
-  (setq lsp-ui-peek-enable nil)
-  (setq lsp-ui-sideline-show-hover nil)
-  (setq lsp-ui-sideline-show-code-actions nil)
-  (setq lsp-ui-sideline-show-diagnostics nil))
-#+end_src
+After trying LSP on and off for a few years... I just don't like it.
 ** Languages
 #+begin_src emacs-lisp :results silent
 (use-package arduino-mode)
@@ -1204,46 +3544,9 @@ corresponding impatient page in the web browser.
     (start-process "" nil "xdg-open" (format "http://localhost:%i/imp/live/%s" httpd-port (buffer-name))))
   )
 #+end_src
-* Circuits
-As an electrical engineer and electronics hobbyist, I find the need to model circuits often. =tikz= works well, but does not provide simulation results. LTspice works well, but it's (1) ancient technology and (2) not Emacs. Solution: throw everything into org-mode.
+* TODO Viewing PDFs
+Eventually, I will put in some Zathura config here. For now, I'm just using pdf-tools because I want that =pdf-view-midnight-minor-mode=.
 
-
-#+begin_src emacs-lisp :results silent
-(use-package spice-mode
-  :config
-  ;; spice-mode does not automatically do file-extensions
-  (add-to-list 'auto-mode-alist '("\\.cir$"          . spice-mode))
-  (add-to-list 'auto-mode-alist '("\\.ckt$"          . spice-mode))
-  (add-to-list 'auto-mode-alist '("\\.inp$"          . spice-mode))
-  (add-to-list 'auto-mode-alist '("\\.spout$"        . spice-mode));hspice out
-  (add-to-list 'auto-mode-alist '("\\.pdir$"         . spice-mode))
- ;;; Intel formats
-  (add-to-list 'auto-mode-alist '("\\.[sS][pP]$"     . spice-mode))
-  (add-to-list 'auto-mode-alist '("\\.[sm]?t0$"      . spice-mode))
-  (add-to-list 'auto-mode-alist '("\\.[h]?spice$"    . spice-mode))
-
-  (add-to-list 'load-path "~/.emacs.d/spice/")
-  (require 'ob-spice)
-
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((spice . t)))
-  )
-#+end_src
-* Utility functions
-** Revert All Buffers
-#+begin_src emacs-lisp
-(defun revert-all-buffers ()
-  "Refreshes all open buffers from their respective files."
-  (interactive)
-  (dolist (buf (buffer-list))
-    (with-current-buffer buf
-      (when (and (buffer-file-name) (file-exists-p (buffer-file-name)) (not (buffer-modified-p)))
-        (revert-buffer t t t) )))
-  (message "Refreshed open files."))
-#+end_src
-* Miscellaneous
-PDF tools is a better PDF viewer than the default DocView. It uses a client-server interface set up for each session by =pdf-tools-install=.
 #+begin_src emacs-lisp
 (use-package pdf-tools
   :config (pdf-tools-install))
