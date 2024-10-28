@@ -148,6 +148,11 @@ I don't use ivy much, but it's useful when I do custom user queries.
 #+begin_src elisp
 (use-package ivy)
 #+end_src
+
+For some high-level hacking, I utilize the following to provide automatic input to interactive functions:
+#+begin_src elisp
+(use-package with-simulated-input)
+#+end_src
 ** init.el
 Emacs requires an ~init.el~ file to get anything done. Luckily for the literacy of this configuration, only a single line is required:
 #+name: init-el-file
@@ -552,7 +557,7 @@ This section seriously needs to be cleaned up and re-written. It currently has o
     )
 #+end_src
 ** Org-related Utility Functions
-Stuff
+Internal-level utility functions that are used elsewhere as building blocks.
 
 #+begin_src elisp
 (defun shizcow/get-toplevel-org-property (property)
@@ -606,7 +611,21 @@ Stuff
             (insert (format "#+%s: %s\n" new-title-case new-title))))
       (goto-char (point-min))
       (insert (format "#+TITLE: %s\n" new-title)))))
+
+(defun shizcow/org-get-http-link-at-point ()
+  "Get the HTTP link at point in an Org buffer, if it exists.
+Returns the URL as a string if it is an HTTP(S) link, otherwise nil."
+  (interactive)
+  (let* ((context (org-element-context))
+         (type (org-element-property :type context))
+         (url (org-element-property :raw-link context)))
+    (when (and (eq (org-element-type context) 'link)
+               (member type '("http" "https")))
+      url)))
 #+end_src
+
+#+RESULTS:
+: shizcow/org-get-http-link-at-point
 
 ** Visual Configuration
 Small things I use to make org-mode buffers look a little better.
@@ -1391,7 +1410,65 @@ Idea: Make [blah:some text] be a custom command in org-mode. I'd like it to (1) 
 #+end_src
 
 #+RESULTS:
+*** Screenshot
+I haven't found an org-screenshot style utility I'm happy with, so I wrote my own.
+This function will launch [[https://flameshot.org/][flameshot]], allow the user to draw annotations, then drop the image into the local org-mode buffer.
+Note that this will create, in the same directory as the current file, a sub-directory called `.org-screenshots` to store the images.
+Temporary files are used on the back-end, so filenames will never collide.
 
+#+begin_src elisp :results silent
+(defun shizcow/org-screenshot-insert ()
+  "Take a screenshot with flameshot, save it as .jpg in the .org-screenshots subdirectory,
+and insert it into the current org-mode buffer. Requires flameshot to be installed."
+  (interactive)
+  ;; Check if Flameshot is installed by checking its presence in the exec-path
+  (if (not (executable-find "flameshot"))
+      (error "Flameshot is not installed. Please install Flameshot to use this utility.")
+    (let* ((current-buffer-file (buffer-file-name)) ;; Get the current buffer file path
+           (parent-directory (file-name-directory current-buffer-file)) ;; Get its directory
+           (screenshot-dir (expand-file-name ".org-screenshots" parent-directory)) ;; Sub-directory for screenshots
+           (timestamp (format-time-string "%Y-%m-%d_%H-%M-%S")) ;; Generate timestamp
+           (temp-file (make-temp-file "flameshot-" nil ".jpg")) ;; Temporary file (JPG extension)
+           (flameshot-command (format "flameshot gui --path %s" (shell-quote-argument temp-file))) ;; Flameshot command
+           (flameshot-output (with-output-to-string
+                               (with-current-buffer standard-output
+                                 (call-process "flameshot" nil t nil "gui" "--path" temp-file)))) ;; Capture stdout/stderr
+           actual-saved-file)
+      
+      ;; Create the .org-screenshots directory if it doesn't exist
+      (unless (file-directory-p screenshot-dir)
+        (make-directory screenshot-dir))
+
+      ;; Flameshot will sometimes not write to the *exact* file you asked for.
+      ;; It will always print the filename, however. So we need to parse
+      ;; its output to figure out the actual saved path.
+      (if (string-match "Capture saved as \\(.*\\)" flameshot-output)
+          (setq actual-saved-file (match-string 1 flameshot-output))
+        ;; Fallback to use temp-file if Flameshot output is unexpected
+        (setq actual-saved-file temp-file))
+
+      (message "Flameshot saved file as: %s" actual-saved-file)
+
+      ;; Generate a unique file name in the .org-screenshots subdirectory
+      (let* ((new-filename-base (format "org-screenshot-%s" timestamp))
+             (new-filename (expand-file-name (concat new-filename-base ".jpg") screenshot-dir))
+             (counter 1))
+        ;; Check if the file already exists, and if so, append `-N` to make it unique
+        (while (file-exists-p new-filename)
+          (setq new-filename (expand-file-name (concat new-filename-base "-" (number-to-string counter) ".jpg")
+                                               screenshot-dir))
+          (setq counter (1+ counter)))
+
+        ;; Rename and move the file to the new location
+        (rename-file actual-saved-file new-filename)
+
+        ;; Insert the image link at point in the org buffer
+        (insert (format "[[file:%s]]" new-filename))
+
+        ;; Org will render the image inline if this is enabled
+        (org-display-inline-images)
+        (message "Screenshot saved and inserted: %s" new-filename)))))
+#+end_src
 ** Sage
 Sagemath is a Python-derived language which allows for high-level symbolic calculation.
 =ob-sagemath= is a package that allows integration with org-mode.
@@ -1512,6 +1589,12 @@ Otherwise, signal an error."
    (t
     (error "Invalid input: not a DOI URL or pattern"))))
 
+(defun shizcow/doi-to-slug (doi-url)
+  "Extracts the DOI part from DOI-URL and returns it as a string.
+Example: (shizcow/doi-to-slug \"https://doi.org/10.1000/xyz123\") => \"10.1000/xyz123\"."
+  (if (string-match "https://doi.org/\\(.*\\)" doi-url)
+      (match-string 1 doi-url)
+    (error "Invalid DOI URL format: %s" doi-url)))
 
 (defvar shizcow/doi-scrapers nil
   "A list of (REGEX . FUNCTION) pairs for DOI scrapers.")
@@ -1586,6 +1669,20 @@ If not, retrieve the webpage and search for the DOI in the HTML content."
 
 
 (shizcow/add-doi-scraper "dl\\.acm\\.org" #'shizcow/try-doi-from-acm)
+#+end_src
+*** Nature
+
+#+begin_src elisp :results silent
+(defun shizcow/try-doi-from-nature (url)
+  "Scrape DOI from Nature website given the URL."
+  (with-current-buffer (url-retrieve-synchronously url)
+    (goto-char (point-min))
+    ; The DOI is easily scraped from the HTML
+    (if (re-search-forward "doi.org/\\(10\\.[0-9]+/[-._;()/:a-zA-Z0-9]+\\)" nil t)
+        (shizcow/canonicalize-doi (match-string 1))
+      (error "No DOI found on the IEEE page"))))
+
+(shizcow/add-doi-scraper "nature\\.com" #'shizcow/try-doi-from-nature)
 #+end_src
 *** Utilities
 Now that we have the above defined:
@@ -1789,8 +1886,57 @@ Each result is an alist containing 'title', 'authors', and 'doi'."
       (shizcow/canonicalize-doi (cdr (assoc 'doi selected-paper))))))
 #+end_src
 
-#+RESULTS:
-: shizcow/prompt-url-from-crossref-search
+And here's a roam specific utility:
+#+begin_src elisp
+(defun shizcow/doi-to-roam-slug (doi)
+  (let* ((raw-slug (replace-regexp-in-string "[./]" "_" (concat "paper_doi_" (shizcow/doi-to-slug doi))))
+         ;; We need to sanitize this
+         ;; Part of this is ripped out of org-roam-node-slug
+         ;; BEGIN RIP
+         (slug-trim-chars '(;; Combining Diacritical Marks https://www.unicode.org/charts/PDF/U0300.pdf
+                            768 ; U+0300 COMBINING GRAVE ACCENT
+                            769 ; U+0301 COMBINING ACUTE ACCENT
+                            770 ; U+0302 COMBINING CIRCUMFLEX ACCENT
+                            771 ; U+0303 COMBINING TILDE
+                            772 ; U+0304 COMBINING MACRON
+                            774 ; U+0306 COMBINING BREVE
+                            775 ; U+0307 COMBINING DOT ABOVE
+                            776 ; U+0308 COMBINING DIAERESIS
+                            777 ; U+0309 COMBINING HOOK ABOVE
+                            778 ; U+030A COMBINING RING ABOVE
+                            779 ; U+030B COMBINING DOUBLE ACUTE ACCENT
+                            780 ; U+030C COMBINING CARON
+                            795 ; U+031B COMBINING HORN
+                            803 ; U+0323 COMBINING DOT BELOW
+                            804 ; U+0324 COMBINING DIAERESIS BELOW
+                            805 ; U+0325 COMBINING RING BELOW
+                            807 ; U+0327 COMBINING CEDILLA
+                            813 ; U+032D COMBINING CIRCUMFLEX ACCENT BELOW
+                            814 ; U+032E COMBINING BREVE BELOW
+                            816 ; U+0330 COMBINING TILDE BELOW
+                            817 ; U+0331 COMBINING MACRON BELOW
+                            ))
+         (node-slug
+          (cl-flet* ((nonspacing-mark-p (char) (memq char slug-trim-chars))
+                     (strip-nonspacing-marks (s) (string-glyph-compose
+                                                  (apply #'string
+                                                         (seq-remove #'nonspacing-mark-p
+                                                                     (string-glyph-decompose s)))))
+                     (cl-replace (raw-slug pair) (replace-regexp-in-string (car pair) (cdr pair) raw-slug)))
+            (let* ((pairs `(("[^[:alnum:][:digit:]]" . "_") ;; convert anything not alphanumeric
+                            ("__*" . "_")                   ;; remove sequential underscores
+                            ("^_" . "")                     ;; remove starting underscore
+                            ("_$" . "")))                   ;; remove ending underscore
+                   (slug (-reduce-from #'cl-replace (strip-nonspacing-marks raw-slug) pairs)))
+              (downcase slug)))))
+    node-slug))
+#+end_src
+
+And the related:
+#+begin_src elisp
+(defun shizcow/paper-url-to-roam-slug (url)
+  (shizcow/doi-to-roam-slug (shizcow/try-doi-from url)))
+#+end_src
 
 ** Scihub
 While I do have access to papers on common platforms through my institution, it's so annoying to have to pass API keys. So...
@@ -2542,7 +2688,7 @@ The process of downloading a resource is invoked by the =shizcow/visit-tid= func
 	  ;; Always overwrite these.... TODO check the target location. Deleting and re-writing the file can cause some programs to complain that have the file open.
 	  (when (file-exists-p dest-loc)
 	    (delete-file dest-loc))
-	  (f-symlink physical-path dest-loc)))
+	  (make-symbolic-link physical-path dest-loc)))
        ((t (user-error (concat "Backing type " (cdr (assoc 'backing tid)) " not supported!"))))
        )
       ;; Download complete
@@ -2957,26 +3103,59 @@ This version defines the =paper= note type. A doi or URL is given -- the PDF is 
 (defun shizcow/org-roam-enhanced-header-1-3-init ()
   (shizcow/org-roam-add-template-type
    '("p" "paper" plain "%?")
-   "${slug}.org"
+   ;; Ok... there's a lot to go over here.
+   ;;
+   ;; We need to be able to prompt for information during the time that the node is filled out.
+   ;; We can inject an %(sexp) into the template expansion and then (setq vars) that we
+   ;; can pass around.
+   ;;
+   ;; This first entry is the title, but of course we need to get more than just the title.
+   (concat
+    ;; So we'll want to take the DOI link and turn it into a canonical file name for the roam database:
+    "%(shizcow/paper-url-to-roam-slug "
+    ;; The DOI we'll store in this temporary variable:
+    "(setq shizcow/transient/doi "
+    ;; And get it from this function which tries to pull out a doi from a non-doi link:
+    "(shizcow/try-doi-from "
+    ;; Which gets its input from the user:
+    "(read-from-minibuffer \"Paper link -- DOI (preferred), publisher (will try to get DOI), direct (will not support bibtex): \"))))"
+    ;; And of course we're plonking this down into a file, so:
+    ".org")
+
+   ;; Now for the rest of the content of the file we can use the DOI link
+   ;; as a source of truth for grabbing the remaining information.
+
+   ;; First up is the content inside of the file. Note that while we have to specify
+   ;; this first, it actually gets evaluated second (after the other stuff below)
+   ;;
+   ;; As can be seen, we do some forward referencing of variables that we're about to define.
    (concat "Paper: %(identity shizcow/transient/title)\n"
-	   ; Title hacks
 	   "Paper PDF here: [[%(nth 0 shizcow/transient/tid-org-link)][%(nth 1 shizcow/transient/tid-org-link)]]")
-   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"DOI\"): %(setq shizcow/transient/doi (shizcow/try-doi-from (read-from-minibuffer \"Paper link -- DOI (preferred), publisher (will try to get DOI), direct (will not support bibtex): \")))\n"
-	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER\"): %(progn
+
+   ;; Now comes the upper properties of the file
+
+   (concat ":%(concat shizcow/org-roam-enhanced-header-prefix \"DOI\"): %(identity shizcow/transient/doi)\n"
+	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER\"): "
+	   ;; Some injected elisp to create a new transient identifier,
+	   ;; querying crossref for the paper title
+	   "%(progn
 (setq shizcow/transient/tid
 (list (cons 'UUID (shizcow/new-tid-uuid))
 	       (cons 'title (setq shizcow/transient/title (shizcow/doi-to-title shizcow/transient/doi)))
 	       (cons 'filetype \"pdf\")
 	       (cons 'backing \"online\")
-	       (cons 'location shizcow/transient/doi)))
-    (shizcow/create-or-update-transient-identifier shizcow/transient/tid)
+	       (cons 'location shizcow/transient/doi)))\n"
+	   ;; And some more elisp to manipulate that TID and format an org link from it
+    "(shizcow/create-or-update-transient-identifier shizcow/transient/tid)
     (setq shizcow/transient/tid-org-link (shizcow/orglink-from-tid shizcow/transient/tid))
     (setq shizcow/transient/tuid (cdr (assoc 'UUID shizcow/transient/tid)))
     (format \"\\%s\" shizcow/transient/tuid)
     )\n"
+    ;; Followed by some housekeeping
 	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER_VAULTFILE\"): [[%(shizcow/tid-uuid-to-filename shizcow/transient/tuid)][%(concat (substring (format \"\\%s\" shizcow/transient/tuid) 0 4) \"...\")]]\n"
 	   ":%(concat shizcow/org-roam-enhanced-header-prefix \"TRANSIENT_IDENTIFIER_RESOURCE\"): [[%(nth 0 shizcow/transient/tid-org-link)][%(nth 1 shizcow/transient/tid-org-link)]]")))
 
+; Don't forget to register the function:
 (shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-3-init '((major . 1) (minor . 3)))
 #+end_src
 
@@ -3169,6 +3348,164 @@ This includes an org-roam open or a direct file open. So long as the property =R
 #+end_src
 
 A positive side-affect of the above is that by calling =org-mode= or =org-mode-restart=, upgrades will be attempted again.
+
+** User Functions
+
+The enhanced node properties allow for some cool stuff.
+
+First, here's a trick to quickly open the paper associated with the open buffer:
+#+begin_src elisp :results silent
+(defun shizcow/roam-open-resource ()
+  "Open a resource associated with the current Org-mode buffer.
+
+Conditions checked:
+1. The buffer is in `org-mode`.
+2. The top-level property `ROAM_ENHANCED_HEADER_TYPE` is `paper`.
+3. The top-level property `TRANSIENT_IDENTIFIER` exists.
+4. There is an associated TID, which is then visited."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (error "This function must be called from an Org-mode buffer"))
+  (unless (string= (shizcow/get-toplevel-org-property 
+                    (concat shizcow/org-roam-enhanced-header-prefix "TYPE"))
+                   "paper")
+    (error "This buffer does not have the `ROAM_ENHANCED_HEADER_TYPE` set to `paper`"))
+  (let ((transient-id 
+         (shizcow/get-toplevel-org-property 
+          (concat shizcow/org-roam-enhanced-header-prefix "TRANSIENT_IDENTIFIER"))))
+    (if transient-id
+	(shizcow/visit-tid transient-id)
+      (error "No `TRANSIENT_IDENTIFIER` property found."))))
+#+end_src
+
+And an alias for that:
+#+begin_src elisp
+(defalias 'shizcow/roam-open-paper 'shizcow/roam-open-resource)
+#+end_src
+
+Here's another one to open the doi url in the system's web browser:
+#+begin_src elisp :results silent
+(defun shizcow/roam-open-doi ()
+  "Open a doi weblink associated with the current Org-mode buffer.
+
+Conditions checked:
+1. The buffer is in `org-mode`.
+2. The top-level property `ROAM_ENHANCED_HEADER_TYPE` is `paper`.
+3. The top-level property `TRANSIENT_IDENTIFIER` exists.
+4. There is an associated TID, which is then visited."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (error "This function must be called from an Org-mode buffer"))
+  (unless (string= (shizcow/get-toplevel-org-property 
+                    (concat shizcow/org-roam-enhanced-header-prefix "TYPE"))
+                   "paper")
+    (error "This buffer does not have the `ROAM_ENHANCED_HEADER_TYPE` set to `paper`"))
+  (let ((transient-id 
+         (shizcow/get-toplevel-org-property 
+          (concat shizcow/org-roam-enhanced-header-prefix "TRANSIENT_IDENTIFIER"))))
+    (if transient-id
+	(let ((doi
+	       (cdr (assoc 'location (shizcow/fetch-transient-identifier transient-id)))))
+	  (if (shizcow/url-is-doi doi)
+	      (browse-url doi)
+	      (error "Backing file URL is not a doi (can't visit).")))
+      (error "No `TRANSIENT_IDENTIFIER` property found."))))
+#+end_src
+
+It's annoying that I can't =org-store-link= a roam ID. When I make a new node,
+I often want to just =org-roam-capture= and dump a link ref into another file.
+
+So, I introduce the function =org-roam-store-link= to do the first:
+#+begin_src elisp
+(defun org-roam-store-link ()
+  "Store a link to the current Org-roam file using its ID and title.
+The position in file is not preserved; only the node id of the current (or otherwise)."
+  (interactive)
+  (let* ((id (org-entry-get (point) "ID"))
+         (title (cadr (assoc "TITLE" (org-collect-keywords '("TITLE")))))
+         (link (concat "id:" id)))
+    (cond
+     ((not id)
+      (message "Error: No ID property found in the current buffer."))
+     ((not title)
+      (message "Error: No #+title found in the current buffer."))
+     ((assoc link org-stored-links)
+      (message "Link already stored: %s [%s]" link title))
+     (t
+      (push (list link title) org-stored-links)
+      (message "Stored Org-roam link: %s [%s]" link title)))))
+#+end_src
+
+Now, wouldn't it be cool if we could auto-populate a new paper node based on just a link?
+Call =shizcow/roam-populate-paper= while the point is inside of a weblink, e.g. https://ieeexplore.ieee.org/document/8411148 and it will be replaced with a link to a newly created roam node.
+Will fail if the DOI reverse lookup also fails.
+#+begin_src elisp
+(defun shizcow/roam-populate-paper ()
+  "Create an org-roam buffer for the paper link at point and replace the link"
+  (interactive)
+  (setq shizcow/tmp/id nil)
+  (setq shizcow/tmp/title nil)
+  (let* ((url (shizcow/org-get-http-link-at-point))
+	 (doi (shizcow/try-doi-from url))
+	 (node-slug (shizcow/doi-to-roam-slug doi))
+         ;; END RIP
+         (node-file (concat (file-name-as-directory org-roam-directory) node-slug ".org")))
+
+    ;; We are now ready to either:
+    ;; - Create the node
+    ;; - Get a reference to the node
+    ;; However, we want to be careful with buffer positions.
+    ;; So, just read the entire file.
+    (if (file-exists-p node-file)
+        ;; Buffer is open
+        (with-temp-buffer
+          (insert-file-contents node-file)
+          (setq shizcow/tmp/id (org-entry-get (point-min) "ID"))
+          (setq shizcow/tmp/title (cadr (assoc "TITLE" (org-collect-keywords '("TITLE"))))))
+      ;; Buffer is NOT open
+      (with-simulated-input
+          ((insert doi) (exit-minibuffer))
+        (org-roam-capture- :node (org-roam-node-create :title node-slug)
+                           :props '(:finalize find-file)
+                           :templates org-roam-capture-templates
+                           :keys "p")
+        ;; File has now been created
+        ;; Get some info
+        (setq shizcow/tmp/id (org-entry-get (point) "ID"))
+        (setq shizcow/tmp/title (cadr (assoc "TITLE" (org-collect-keywords '("TITLE")))))
+        ;; And close the buffer
+        (kill-buffer (current-buffer))
+        ))
+
+    ;; Okay, title and ID get
+    (unless shizcow/tmp/id (user-error "ID not filled out correctly!"))
+    (unless shizcow/tmp/title (user-error "Title not filled out correctly!"))
+
+    ;; Now, if the title is in the format "Paper: <>" remove the paper part
+    ;; It's just annoying
+    (setq shizcow/tmp/title
+	  (if (string-prefix-p "Paper: " shizcow/tmp/title)
+	      (substring shizcow/tmp/title (length "Paper: ")) ;; Remove prefix
+	    shizcow/tmp/title))
+
+    ;; Finally, replace the link
+    (let* ((new-link (org-link-make-string (concat "id:" shizcow/tmp/id) shizcow/tmp/title))
+	   (link (org-element-context))
+	   (post-blank (org-element-property :post-blank link)) ; Whitespace tracking
+	   (link-start (org-element-property :begin link))
+	   (link-end (org-element-property :end link)))
+      ;; So delete the old link
+      (org-with-wide-buffer
+       (delete-region link-start link-end)
+       ;; And paste in the new one
+       (insert new-link)
+       (dotimes (_ post-blank)
+         ;; And fix the whitespace
+         (insert " "))))))
+#+end_src
+
+#+RESULTS:
+: shizcow/roam-populate-paper
 
 ** Graph
 Yes I need to see the graph. I'll probably replace this with something functional at some point.
