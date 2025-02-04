@@ -4,6 +4,9 @@ end
 
 set fish_greeting
 
+# Ree
+set -x DEBUGINFOD_URLS "https://debuginfod.archlinux.org"
+
 if status is-interactive && type -q thefuck
     thefuck --alias | source
 end
@@ -81,20 +84,6 @@ if status is-login
     end
 end
 
-# TODO:
-# - Make CSU ssh execute shell via pseudocommand instead of screw with bashprofile
-#   - This would make it so I don't need to use self_redirect for shell integration... will think about it
-#   - Or just wait until they get around to allowing us to use fish
-function ssh --wraps=ssh --description 'if ssh target is "cs", it has fish installed. Forward the ID of this fish process so emacs can mark the vterm buffer correctly'
-    if test "$argv[1]" = "cs"
-	echo %self > ~/.fish_ssh_id
-	scp ~/.fish_ssh_id cs:~/.fish_ssh_id
-	/bin/ssh $argv
-    else
-	/bin/ssh $argv
-    end
-end
-
 # weird ssh stuff
 set self_redirect %self
 
@@ -149,7 +138,7 @@ function fish_prompt
     set -l user_color       (set_color blue)
     set -l host_color       (set_color brown)
 
-    if test "$HOSTNAME" = "mothership"
+    if test "$HOSTNAME" = "drone53"
 	# on local machine
 	if test "$USERNAME" != "notroot"
 	    # worth printing
@@ -246,4 +235,125 @@ switch $TERM
 		vterm_cmd vterm-set-idle $self_redirect
 	    end
 	end
+end
+
+
+############
+# Git Nuke #
+############
+# ====== Core Implementation ======
+function __git_nuke
+    # Handle --help/-h
+    if set --query argv[1]
+        if contains -- "$argv[1]" --help -h
+            echo "git nuke - Nuclear option for corrupted Git repositories"
+            echo
+            echo "Usage:"
+            echo "  git nuke [--help]"
+            echo
+            echo "Description:"
+            echo "  Completely removes the current repository and re-clones it while:"
+            echo "  - Preserving your current branch"
+            echo "  - Maintaining the origin URL"
+            echo "  - Requiring confirmation for destructive actions"
+            echo
+            echo "Process flow:"
+            echo "  1. Verify we're in a Git repository"
+            echo "  2. Check for uncommitted changes"
+            echo "  3. Confirm destruction of stashes"
+            echo "  4. Delete repository and re-clone"
+            echo "  5. Restore original branch"
+            echo
+            echo "Safety checks:"
+            echo "  - Must be run from repository root"
+            echo "  - Confirms destruction of uncommitted changes"
+            echo "  - Warns about stashed changes"
+            echo "  - Final confirmation before deletion"
+            return 0
+        end
+    end
+
+        # Fail immediately if any command fails
+    set -l exit_code 0
+    set -l repo_root (git rev-parse --show-toplevel 2>/dev/null)
+    or begin
+        echo "Error: Not in a Git repository"
+        return 1
+    end
+
+    # Verify working directory matches repo root
+    if test "$repo_root" != (pwd)
+        echo "Error: Run from repository root: $repo_root"
+        return 1
+    end
+
+    # Get repository information
+    set -l origin_url (git config --get remote.origin.url)
+    set -l current_branch (git symbolic-ref --short HEAD 2>/dev/null)
+
+    if test -z "$origin_url"
+        echo "Error: No remote 'origin' configured"
+        return 1
+    end
+
+    if test -z "$current_branch"
+        echo "Error: Detached HEAD state - checkout a branch first"
+        return 1
+    end
+
+    # Check for unsaved changes
+    if not git diff --quiet
+        read -P "Uncommitted changes will be destroyed. Continue? (y/N) " -l confirm
+        if not string match -qi 'y*' "$confirm"
+            return 1
+        end
+    end
+
+    # Check for existing stashes
+    if test (git stash list | wc -l) -gt 0
+        read -P "Stashed changes will be lost. Continue? (y/N) " -l confirm
+        if not string match -qi 'y*' "$confirm"
+            return 1
+        end
+    end
+
+    # Final confirmation
+    read -P "NUKE and re-clone '$repo_root'? (y/N) " -l confirm
+    if not string match -qi 'y*' "$confirm"
+        return 1
+    end
+
+    # Execute nuclear option
+    set -l parent_dir (dirname "$repo_root")
+    set -l repo_name (basename "$repo_root")
+
+    cd "$parent_dir" || return 1
+    rm -rf "$repo_name"
+    git clone "$origin_url" "$repo_name" || return 1
+    cd "$repo_name"
+
+    # Restore branch
+    if git checkout "$current_branch" 2>/dev/null
+        echo "Restored branch '$current_branch'"
+    else
+        git checkout -b "$current_branch"
+        echo "Created new branch '$current_branch'"
+    end
+end
+
+# ====== Git Command Integration ======
+if functions --query git
+    functions --copy git __original_git
+else
+    function __original_git
+        command git $argv
+    end
+end
+
+function git
+    if set --query argv[1]; and test "$argv[1]" = "nuke"
+        __git_nuke $argv[2..]
+    else
+        __original_git $argv
+    end
 end
