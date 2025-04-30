@@ -458,7 +458,7 @@ Returns all text if timeout occurs. Captures only stdout."
 
 And finally, an example of use. This is a simple call:
 
-#+begin_src elisp :tangle no
+#+begin_src elisp :tangle no :eval never
 (shizcow/with-llama 
  "mistral-7b"
  "Write me a haiku about yak shaving. Output only the three lines of the haiku, absolutely nothing else."
@@ -478,7 +478,7 @@ Keep in mind the [[https://github.com/ggml-org/llama.cpp/blob/master/grammars/RE
 - Comments may be specified with the # character
 - Quotes must be escaped (such is Elisp)
 
-#+begin_src elisp :tangle no
+#+begin_src elisp :tangle no :eval never
 (shizcow/with-llama 
  "tinyllama"
  "Give me a single random 10-digit integer"
@@ -2626,58 +2626,91 @@ My org-roam home directory is in =~/smbshare/PhD-roam=. =smbshare= is the folder
 ** General Utilities
 Misc utilities to help here and there.
 
-The first is a function to help generate slugs for org roam files. This is mostly a fallback for files that don't have a proper method hard-coded yet.
+The set of functions help generate slugs for org roam files.
 #+begin_src elisp
+(defun shizcow/generate-new-random-slug ()
+  "Generate a new unique random slug for org-roam.
+Starts with a single random character from 0-9, a-z, A-Z, '-', or '_',
+and keeps adding characters until the slug is unique within `org-roam-directory`."
+  (let* ((charset "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_")
+         (slug (string (elt charset (random (length charset)))))
+         (org-roam-dir (file-name-as-directory org-roam-directory)))
+    (while (file-exists-p (expand-file-name (concat slug ".org") org-roam-dir))
+      (setq slug (concat slug (string (elt charset (random (length charset)))))))
+    slug))
+
 (defun shizcow/generate-new-slug-from (literal &optional title &rest other)
   "Generate a unique slug for an org-roam file.
 If LITERAL is non-nil, use it directly as the slug.
 Otherwise, apply a large language model compression scheme to TITLE if available, or to the stringified OTHER arguments.
 Ensure uniqueness within `org-roam-directory` by appending a numeric suffix if necessary."
-  (defun llm-compress (instr)
-    (shizcow/with-llama 
-     "zephyr-3b"
-     (concat "Make me a basename inspired by the below string. It should be short (5-25 characters) and only include the characters a-z, 0-9, and _. The file will be saved on disk as ${basename}.txt. Make up the basename yourself, and only output the basename text. The string is:
+  (let ((llm-choice "zephyr-3b"))
+    (defun llm-compress (instr)
+      (shizcow/with-llama 
+       llm-choice
+       (concat "Make me a basename inspired by the below string. It should be short (5-25 characters) and only include the characters a-z, 0-9, and _. The file will be saved on disk as ${basename}.txt. Make up the basename yourself, and only output the basename text. The string is:
 
 " instr)
-     :grammar "
+       :grammar "
 root ::= base-name
 base-name ::= character base-name | character
 character ::= \"a\" | \"b\" | \"c\" | \"d\" | \"e\" | \"f\" | \"g\" | \"h\" | \"i\" | \"j\" | \"k\" | \"l\" | \"m\" | \"n\" | \"o\" | \"p\" | \"q\" | \"r\" | \"s\" | \"t\" | \"u\" | \"v\" | \"w\" | \"x\" | \"y\" | \"z\" | \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\" | \"-\" | \"_\"
 "
-     :timeout 30))
-  (let* ((raw-slug
-          (cond
-           (literal literal)
-           (title (llm-compress title))
-           (t (llm-compress (mapconcat #'prin1-to-string other "-"))))))
-    (when (string= raw-slug "...")
-      (user-error "LLAMA failed to produce a valid slug. Tip: Make your title simpler, or hard-code a slug generator for this note type."))
-    (let* ((cleaned-slug
-            (let ((lines (split-string raw-slug "\n")))
-              (if (and (= (length lines) 2)
-                       (string= (cadr lines) "..."))
-                  (car lines)
-                raw-slug)))
-           (base-slug cleaned-slug)
-           (slug base-slug)
-           (org-roam-dir (file-name-as-directory org-roam-directory))
-           (i 0))
-      (while (file-exists-p (expand-file-name (concat slug ".org") org-roam-dir))
-        (setq slug (format "%s-%d" base-slug i))
-        (setq i (1+ i)))
-      slug)))
+       :timeout 30))
+    (message "Generating a new filename using %s. This may take a few moments..." llm-choice)
+    (let* ((raw-slug
+            (cond
+             (literal literal)
+             (title (llm-compress title))
+             (t (llm-compress (mapconcat #'prin1-to-string other "-"))))))
+      (when (string= raw-slug "...")
+	(user-error "LLAMA failed to produce a valid slug. Tip: Make your title simpler, or hard-code a slug generator for this note type."))
+      (let* ((cleaned-slug
+              (let ((lines (split-string raw-slug "\n")))
+		(if (and (= (length lines) 2)
+			 (string= (cadr lines) "..."))
+                    (car lines)
+                  raw-slug)))
+             (base-slug cleaned-slug)
+             (slug base-slug)
+             (org-roam-dir (file-name-as-directory org-roam-directory))
+             (i 0))
+	(while (file-exists-p (expand-file-name (concat slug ".org") org-roam-dir))
+          (setq slug (format "%s-%d" base-slug i))
+          (setq i (1+ i)))
+	slug))))
 #+end_src
 
-#+RESULTS:
-: shizcow/generate-new-slug-from
+The next set glue the prior two functions together. There exists a mechanism elsewhere in this document to name a file with a temporary name, and then re-name it to a more coherent name once the file contents have been populated. The below function is the function through which the aforementioned hook gets the job done:
 
-#+begin_src elisp
-(shizcow/generate-new-slug-from nil nil '(1 2 3))
+#+begin_src elisp :results silent
+(defun shizcow/roam-scavenge-slug-and-rename (filename)
+  "Rename an Org-roam file to a slugified version of its title.
+FILENAME should be the basename (with extension) of a file in `org-roam-directory`."
+  (interactive
+   (list (file-name-nondirectory (or (buffer-file-name)
+                                     (read-file-name "Filename: ")))))
+  (let* ((full-path (expand-file-name filename org-roam-directory))
+         (new-name
+          (with-temp-buffer
+            (insert-file-contents full-path)
+            (goto-char (point-min))
+            (if (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
+                (let ((title (string-trim (match-string 1))))
+                  (concat (shizcow/generate-new-slug-from nil title) ".org"))
+              (user-error "No #+title found in %s" filename))))
+         (new-path (expand-file-name new-name org-roam-directory)))
+    (when (file-exists-p new-path)
+      (user-error "Target filename %s already exists" new-name))
+    ;; Rename the file on disk
+    (rename-file full-path new-path)
+    ;; If buffer visiting the old file exists, update its filename
+    (let ((buf (get-file-buffer full-path)))
+      (when buf
+        (with-current-buffer buf
+          (set-visited-file-name new-path t t))))
+    (message "Renamed %s -> %s" filename new-name)))
 #+end_src
-
-#+RESULTS:
-: _1233_
-
 ** Transience
 This is the scheme I've written to store files locally.
 
@@ -3241,20 +3274,40 @@ This version defines additional template classes and embeds the note type in the
     "Adds an entry to org-roam-capture-templates, adding a property for the enhanced header version"
     (setq template-items
 	  (append template-items
-		  (list :if-new	
-			(list 'file+head (concat "%(shizcow/generate-new-slug-from "
-						 (prin1-to-string path-spec)
-						 " "
-						 (prin1-to-string title-str)
-						 " "
-						 (prin1-to-string additional-props)
-						 ")")
-			      (concat ":PROPERTIES:
+		  (list :if-new
+			(let ((tmp-filename (if path-spec path-spec (concat (shizcow/generate-new-random-slug) ".org"))))
+			  (list 'file+head tmp-filename
+				(concat ":PROPERTIES:
 :%(identity shizcow/org-roam-enhanced-header-ver-name): %(shizcow/org-roam-enhanced-header-get-ver-str)
 :%(concat shizcow/org-roam-enhanced-header-prefix \"TYPE\"): " (nth 1 template-items) "\n"
-(when additional-props (concat additional-props "\n"))
-":END:\n"
-(if title-str (concat "#+title: " title-str "\n") "#+title: ${title}\n")))
+					      (when additional-props (concat additional-props "\n"))
+					      ":END:\n"
+					      (if title-str (concat "#+title: " title-str "\n") "#+title: ${title}\n")
+					      ;; Level 2 hack: Renaming the file
+					      ;; Currently, it's named something random (specifically, tmp-filename)
+					      ;; but we'd like the name on disk to be intelligent.
+					      ;; So, we add some Elisp to scan this file and come up with a name.
+					      ;; Unless path-spec was passed, of course.
+					      ;;
+					      ;; Therefore, we defined some function and pass that to the roam
+					      ;; template expansion engine. We need to evaluate this here, since the
+					      ;; template expansion for the filename will trigger before the file
+					      ;; contents... AKA, before we have a chance to read user input.
+					      ;;
+					      ;; Roam has a mechanism for hooking into elisp with the %(...) syntax.
+					      ;; This will drop in a string as the return value of the function,
+					      ;; but we can just throw away the function result and return an empty string
+					      ;;
+					      ;; Making this work is surprisingly difficult! We can't change the slug at
+					      ;; this point, but we also don't have the title available to us yet.
+					      ;; So, we set a variable that triggers a rename down the line, after
+					      ;; org-roam finishes writing this capture to disk.
+					      (if path-spec "" (concat
+								;; Trigger a rename if required
+								"%(progn (setq shizcow/transient/defer-slug-scavenging "
+								;; And pass the filename
+								(prin1-to-string tmp-filename) ") \"\")"))
+					      )))
 			:immediate-finish t
 			:unnarrowed t)))
     (add-to-list 'org-roam-capture-templates template-items t))
@@ -3265,10 +3318,18 @@ This version defines additional template classes and embeds the note type in the
   (shizcow/org-roam-add-template-type
    '("r" "reference" plain "%?")
    "%(concat
-     (when citar-org-roam-subdir (concat citar-org-roam-subdir \"/\")) \"${citar-citekey}.org\")")
+      (when citar-org-roam-subdir (concat citar-org-roam-subdir \"/\")) \"${citar-citekey}.org\")")
   )
 
 (shizcow/org-roam-enhanced-header-register-fun 'shizcow/org-roam-enhanced-header-1-0-init '((major . 1) (minor . 0)))
+
+(defun shizcow/org-roam-capture-finished (&rest _)
+  "Run after `org-roam-capture-` completes."
+  (when shizcow/transient/defer-slug-scavenging
+    (shizcow/roam-scavenge-slug-and-rename shizcow/transient/defer-slug-scavenging))
+  (setq shizcow/transient/defer-slug-scavenging nil))
+
+(advice-add 'org-roam-capture- :after 'shizcow/org-roam-capture-finished)
 #+end_src
 
 Additionally, defined below is a means of upgrading notes.
