@@ -55,3 +55,30 @@ Host hawksbill
   HostName hawksbill
   ProxyCommand ssh -W %h:%p rg-login
   IdentityFile ~/.ssh/id_rsa
+
+Host excl login.excl.ornl.gov
+  Hostname login.excl.ornl.gov
+  User devinpohl
+  
+Host explorer
+  User devinpohl
+  HostName explorer
+  ProxyCommand ssh -W %h:%p excl
+  IdentityFile ~/.ssh/id_rsa
+
+Host zenith
+  User devinpohl
+  HostName zenith
+  ProxyCommand ssh -W %h:%p excl
+  IdentityFile ~/.ssh/id_rsa
+Host zenith.ftpn.ornl.gov
+  User devinpohl
+  HostName zenith
+  ProxyCommand ssh -W %h:%p excl
+  IdentityFile ~/.ssh/id_rsa
+  
+Host milan0
+  User devinpohl
+  HostName milan0
+  ProxyCommand ssh -W %h:%p excl
+  IdentityFile ~/.ssh/id_rsa

@@ -1,4 +1,4 @@
-personal_ws-1.1 en 187 
+personal_ws-1.1 en 212 
 APA
 AUCC
 Abelian
@@ -8,6 +8,7 @@ Altera
 Asymptote
 CISC
 CISC's
+CNNs
 CSU
 CSU's
 Chipset
@@ -27,6 +28,7 @@ Glassdoor
 Grom
 HPE
 Homomorphisms
+ILP
 ISA
 ISAs
 Immediates
@@ -36,8 +38,10 @@ JTC
 Jameson
 Kori
 LFS
+LIF
 LaTeX
 MOSFET
+MVM
 Microcontroller
 Microcontrollers
 Microsystems
@@ -56,9 +60,13 @@ Pohl
 Pouchet
 PureDAG
 PureDag
+RRAM
 Raspbian
+SNN
+SNNs
 SPI
 Satisfiability
+SpikeHard
 Spotify
 Syndra
 SyndraSchedule
@@ -67,28 +75,34 @@ TDP
 TIVA
 TODO
 Thevenin
+VMM
 Vterm
 Wireshark
 accuracies
 allocator
 anticipatable
+axonal
 benchmarking
 bottlenecked
 bottlenecking
 broadcasted
+calibratable
 capacitive
 comparator
 computable
 conductances
 corporatist
 dataflow
+discretize
 discretized
 disproportionally
+electroform
 elisp
 encodings
 endomorphic
 endomorphism
 endomorphisms
+excitatory
 existentials
 executables
 expandability
@@ -98,12 +112,16 @@ homomorphic
 homomorphism
 homomorphisms
 hotpatch
+hotspot
+hotspots
+idealities
 ideation
 ideations
 immediates
 impactful
 impactfully
 inductor
+inhibitive
 instantiation
 instantiations
 interleavings
@@ -130,6 +148,7 @@ natively
 neuromorphic
 nops
 nullable
+optimality
 overrider
 parallelize
 parasitics
@@ -140,6 +159,7 @@ pipelined
 pipelining
 polynomially
 procedurally
+promotable
 quantized
 probabilistically
 procedurally
@@ -158,6 +178,7 @@ responders
 runtimes
 satisfiability
 satisfiable
+scalable
 servlet
 shader
 shaders
@@ -171,6 +192,7 @@ src
 submodule
 subteam
 symlinked
+subtractive
 systemd
 templated
 tilings
@@ -181,7 +203,10 @@ triode
 tripartism
 unsatisfiability
 unsatisfiable
+tunable
+unoptimized
 unsupportive
+unviability
 vectorised
 vectorized
 virtualized

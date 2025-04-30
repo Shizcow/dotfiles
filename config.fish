@@ -2,6 +2,9 @@ if set -q SSH_CLIENT; or set -q SSH_TTY
     set IN_SSH true
 end
 
+# Ree
+set -x DEBUGINFOD_URLS "https://debuginfod.archlinux.org"
+
 set fish_greeting
 
 # Ree
@@ -235,6 +238,10 @@ switch $TERM
 		vterm_cmd vterm-set-idle $self_redirect
 	    end
 	end
+    case dumb
+        function fish_prompt
+            echo '$ '
+        end
 end
 
 

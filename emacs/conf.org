@@ -228,6 +228,235 @@ The following is required to get ~:quelpa~ syntax within use-package:
 #+end_src
 
 The remaining sections of this document include the real Emacs configuration.
+* Large Language Models
+AI/ML/NLP is not something that interests me (and yet I research it). But it's fun to toy around with, so I've taken to using it in a few places in my Emacs configuration to do some of the heavy lifting and add a touch of humor.
+
+** LLAMA
+To run these models, I'm using llama.cpp. The below elisp is a lightly over-engineered installation method to clone, build, and install llama into .emacs.d:
+
+#+begin_src elisp
+(defvar shizcow/llama-max-retries 2
+  "Maximum number of installation attempts before giving up.")
+
+(defvar shizcow/llama-install-attempts 0
+  "Current number of installation attempts.")
+
+(defvar shizcow/llama-install-dir (expand-file-name "llama" user-emacs-directory)
+  "CMake installation prefix within Emacs directory.")
+
+(defvar shizcow/llama-temp-dir (expand-file-name "~/.local/llama")
+  "Temporary build directory.")
+
+(defun shizcow/llama-cli-valid-p ()
+  "Verify the installed llama-cli binary works."
+  (let ((llama-cli (expand-file-name "bin/llama-cli" shizcow/llama-install-dir)))
+    (and (file-executable-p llama-cli)
+         (= 0 (call-process llama-cli nil nil nil "--version")))))
+
+(defun shizcow/ensure-llama-installed (&optional retry)
+  "Install llama.cpp using CMake's install target to Emacs directory."
+  (interactive)
+  (when retry (cl-incf shizcow/llama-install-attempts))
+  
+  (cond
+   ((>= shizcow/llama-install-attempts shizcow/llama-max-retries)
+    (error "Llama.cpp installation failed after %d attempts" shizcow/llama-max-retries))
+   
+   ((shizcow/llama-cli-valid-p)
+    t)
+   
+   (t
+    (let* ((default-directory (file-name-as-directory shizcow/llama-temp-dir)))
+      (mkdir shizcow/llama-temp-dir t)
+      (compile 
+       (concat
+        "rm -rf llama.cpp && "
+        "git clone https://github.com/ggerganov/llama.cpp.git --depth=1 && "
+        "cd llama.cpp && "
+        "cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="(shell-quote-argument shizcow/llama-install-dir)" && "
+        "cmake --build build --config Release -j $(nproc) && "
+        "cmake --install build && "
+        "cd "(shell-quote-argument shizcow/llama-install-dir)" &&"
+        "rm -rf " (shell-quote-argument shizcow/llama-temp-dir)
+        )
+       t)
+      (with-current-buffer "*compilation*"
+        (rename-buffer "*llama.cpp installation*")
+        (add-hook 'compilation-finish-functions 
+                  #'shizcow/llama-install-post-check nil t))))))
+
+(defun shizcow/llama-install-post-check (buffer status)
+  "Final validation after compilation completes."
+  (when (string= status "finished\n")
+    (if (shizcow/llama-cli-valid-p)
+        (progn
+          (message "Llama.cpp installed successfully in %s" shizcow/llama-install-dir)
+          ;; Add binary directory to exec-path
+          (add-to-list 'exec-path (expand-file-name "bin" shizcow/llama-install-dir))
+          (progn
+            (message "Installation failed - retrying...")
+            (shizcow/ensure-llama-installed t))))))
+
+;; Now, do the actual build and install
+(unless (shizcow/llama-cli-valid-p)
+  (shizcow/ensure-llama-installed))
+#+end_src
+
+#+RESULTS:
+| shizcow/llama-install-post-check | t |
+
+** Huggingface
+Now that we've built llama, we need to load it with models from Huggingface. Below are some utilities that automate the download process:
+
+#+begin_src elisp
+(defvar shizcow/llama-model-registry (make-hash-table :test 'equal)
+  "Registry of model shortnames to download URLs.")
+
+(defvar shizcow/llama-model-dir (expand-file-name "llama/models" user-emacs-directory)
+  "Directory to store downloaded GGUF models.")
+
+(defun shizcow/use-llama-model (link shortname)
+  "Register a model for use and ensure it's available.
+  LINK is the download URL, SHORTNAME is the local identifier."
+  (interactive "sModel URL: \nsShortname: ")
+  ;; Store model in registry
+  (puthash shortname link shizcow/llama-model-registry)
+  ;; Defer downloading the model until it needs to be used
+  t
+  )
+
+(defun shizcow/ensure-llama-model (shortname)
+  "Synchronously ensure model exists with simple status messages. Returns the file name of the model on disk."
+  (let* ((url (gethash shortname shizcow/llama-model-registry))
+         (filename (and url (file-name-nondirectory url)))
+         (dest-dir shizcow/llama-model-dir)
+         (dest-file (when filename (expand-file-name filename dest-dir))))
+    (unless url
+      (user-error "No LLaMA model registered under '%s'" shortname))
+    ;; Create model directory if needed
+    (unless (file-directory-p dest-dir)
+      (make-directory dest-dir :parents)
+      (message "Created model directory: %s" dest-dir))
+    ;; Download if missing
+    (when (not (file-exists-p dest-file))
+      (progn
+        (message "Downloading LLaMA model '%s' from %s..." shortname url)
+        (condition-case err
+            (progn
+              ;; url-copy-file will overwrite by default if second arg t
+              (url-copy-file url dest-file t)
+              (message "Successfully downloaded '%s' to %s" shortname dest-file))
+          (error
+           (message "Failed to download model '%s': %s" shortname (error-message-string err))
+           (when (file-exists-p dest-file)
+             (delete-file dest-file))))))
+    dest-file))
+#+end_src
+
+#+RESULTS:
+: shizcow/ensure-llama-model
+
+Now that we have the ability to download models, let's grab some simple ones:
+
+#+begin_src elisp
+;; Hello world tier model
+(shizcow/use-llama-model
+   "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+   "tinyllama")
+
+; A little bit smarter, but is very analytical (likes to put extra stuff around the requested output)
+(shizcow/use-llama-model
+ "https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q4_K_M.gguf"
+ "phi-2")
+
+; ~2.5GB ram, obedient
+(shizcow/use-llama-model
+ "https://huggingface.co/TheBloke/stablelm-zephyr-3b-GGUF/resolve/main/stablelm-zephyr-3b.Q4_K_M.gguf"
+ "zephyr-3b")
+
+; ~5GB ram, takes a long time, might need some post clean up (likes to put near-empty lines before output)
+(shizcow/use-llama-model
+ "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+ "mistral-7b")
+#+end_src
+
+#+RESULTS:
+: t
+
+** Interface
+Now, a method of interfacing with the models:
+
+#+begin_src elisp
+(defun shizcow/with-llama (shortname prompt &optional timeout)
+  "Run PROMPT through specified LLAMA model and return raw output string.
+Preserves all formatting and whitespace until [end of text] marker.
+Returns all text if timeout occurs. Captures only stdout."
+  (shizcow/ensure-llama-installed)
+  (unless (shizcow/llama-cli-valid-p)
+    (error "llama-cli binary validation failed"))
+
+  (let* ((timeout (or timeout 5))
+         (llama-cli (expand-file-name "bin/llama-cli" shizcow/llama-install-dir))
+         (model-path (shizcow/ensure-llama-model shortname))
+         (output-buffer (generate-new-buffer " *llama-output*"))
+         (err-buffer (generate-new-buffer " *llama-stderr*"))
+         (args (list "-m" model-path
+                     "--prompt" prompt  ; Ensure correct spelling here
+                     "-st" "--no-display-prompt"))
+         (proc (make-process
+                :name "llama"
+                :buffer output-buffer
+                :command (cons llama-cli args)
+                :stderr err-buffer))
+         (start-time (current-time))
+         (timed-out nil))
+    
+    (unwind-protect
+        (progn
+          (while (process-live-p proc)
+            (when (> (float-time (time-since start-time)) timeout)
+              (kill-process proc)
+              (setq timed-out t))
+            (accept-process-output proc 0.1))
+          
+          (with-current-buffer output-buffer
+            (let* ((raw-output (buffer-substring-no-properties 
+				(point-min) (point-max)))
+		   ;; Search for [end of text]
+		   (clipped-output (cond
+				    (timed-out raw-output)  ; Return all text on timeout
+				    ((string-match (rx (group (*? anything)) "[end of text]") raw-output)
+				     (match-string 1 raw-output))
+				    (t raw-output)))
+		   (clipped-output (string-trim clipped-output))
+		   ;; Also search for "Process llama killed"
+		   (killed-output   (let* ((lines (split-string clipped-output "\n"))
+					   (last-line (car (last lines))))
+				      (if (string= last-line "Process llama killed")
+					  (mapconcat #'identity
+						     (append (butlast lines) '("..."))
+						     "\n")
+					clipped-output)))
+		   (killed-output (string-trim killed-output)))
+              killed-output)))
+      (kill-buffer output-buffer))))
+#+end_src
+
+#+RESULTS:
+: shizcow/with-llama
+
+And finally, an example of use:
+
+#+begin_src elisp :tangle no :eval never
+(shizcow/with-llama 
+ "mistral-7b"
+ "Write me a haiku about yak shaving. Output only the three lines of the haiku, absolutely nothing else." 10)
+#+end_src
+
+#+RESULTS:
+: Yak shaving,
+: Silent blades glide,
+: Soft fur falls away.
 * Visual Configuration
 This section configures global settings related to how Emacs looks and feels.
 ** Default Display Settings
