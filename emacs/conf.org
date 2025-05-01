@@ -3060,12 +3060,19 @@ The process of downloading a resource is invoked by the =shizcow/visit-tid= func
 		(cond ((shizcow/url-is-pdf uri)
 		       (progn (message "... directly (this looks like a pdf already)" uri)
 			      (url-copy-file uri dest-loc t)))
+		      ;; arXiv papers are easy to look up
+		      ((string-match-p "/arxiv\\." uri)
+		       (progn (message "... from arXiv (grabbing indirect link)" uri)
+			      (let* ((arxiv-slug (replace-regexp-in-string ".*/arXiv\\." "" uri))
+				     (arxiv-pdf-url (concat "https://arxiv.org/pdf/" arxiv-slug)))
+				(url-copy-file arxiv-pdf-url dest-loc t))))
+		      ;; Otherwise, try to pirate the paper
 		      ((shizcow/url-is-doi uri)
 		       (progn (message "... via scihub (via doi)" uri)
 			      (let ((scihub-open-after-download t))
 				(setq open-synchronously nil) ;; Disable the after-open
 				;; TODO: if scihub fails do some 2auth or external browser whatever to get a download with login information
-			      (scihub uri dest-loc))))
+				(scihub uri dest-loc))))
 		      (t (progn (message "... directly (IDK what this is)" uri)
 				(url-copy-file uri dest-loc t)))))))
 	)
