@@ -3071,7 +3071,9 @@ The process of downloading a resource is invoked by the =shizcow/visit-tid= func
 		       (progn (message "... via scihub (via doi)" uri)
 			      (let ((scihub-open-after-download t))
 				(setq open-synchronously nil) ;; Disable the after-open
-				;; TODO: if scihub fails do some 2auth or external browser whatever to get a download with login information
+				;; Note: We advise scihub-fetch-callback
+				;; later to allow for external browser
+				;; download on failure.
 				(scihub uri dest-loc))))
 		      (t (progn (message "... directly (IDK what this is)" uri)
 				(url-copy-file uri dest-loc t)))))))
@@ -3095,6 +3097,35 @@ The process of downloading a resource is invoked by the =shizcow/visit-tid= func
 	  (org-link-open-as-file dest-loc 'system))
       )))
 #+end_src
+
+The above will attempt to download papers from SciHub, but can fail if the resource is not known to SciHub. In that case, we allow for eternal downloading. This automatically sets up:
+
+#+begin_src elisp
+(defun shizcow/external-download (doi filename)
+  "Open DOI in browser, copy FILENAME to clipboard, and wait for manual download. Open when finished."
+  (let ((doi-url (concat "https://doi.org/" doi)))
+    (browse-url doi-url)
+    (kill-new filename)
+    (message "Opened DOI in browser. Path copied to clipboard: %s. Please download the PDF to this location. Emacs will resume once file is downloaded." filename)
+    (let ((wait-time 1)) ;; seconds between checks
+      (while (not (file-exists-p filename))
+        (sleep-for wait-time)))
+    (message "File downloaded correctly: opening %s..." filename)
+    (org-link-open-as-file filename 'system)))
+
+(defun shizcow/scihub-failure-hook (orig-fn status homepage query filename)
+  "Advice to detect Sci-Hub failure and print a message."
+  (condition-case err
+      (funcall orig-fn status homepage query filename)
+    (scihub-not-found
+     (shizcow/external-download query filename)
+     ))) ;; Re-raise the original error
+
+;; Add the advice
+(advice-add 'scihub-fetch-callback :around 'shizcow/scihub-failure-hook)
+#+end_src
+
+#+RESULTS:
 
 *** Linking to Resources
 **** Org Support
