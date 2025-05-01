@@ -1949,6 +1949,19 @@ If not, retrieve the webpage and search for the DOI in the HTML content."
 
 (shizcow/add-doi-scraper "nature\\.com" #'shizcow/try-doi-from-nature)
 #+end_src
+*** arXiv
+#+begin_src elisp :results silent
+(defun shizcow/try-doi-from-arxiv (url)
+  "Scrape DOI from arXiv website given the URL."
+  (with-current-buffer (url-retrieve-synchronously url)
+    (goto-char (point-min))
+    ; The DOI is easily scraped from the HTML
+    (if (re-search-forward "doi.org/\\(10\\.[0-9]+/[-._;()/:a-zA-Z0-9]+\\)" nil t)
+        (shizcow/canonicalize-doi (match-string 1))
+      (error "No DOI found on the arXiv page"))))
+
+(shizcow/add-doi-scraper "arxiv\\.org" #'shizcow/try-doi-from-arxiv)
+#+end_src
 *** Utilities
 Now that we have the above defined:
 #+begin_src elisp
@@ -1957,29 +1970,48 @@ Now that we have the above defined:
 
 (defun shizcow/doi-to-title (canonical-doi)
   "Retrieve the title of a publication from CrossRef given a canonicalized DOI.
-The CANONICAL-DOI should be in the form 'https://doi.org/DOI'."
-  (let ((api-url (format "https://api.crossref.org/works/%s" (replace-regexp-in-string "https://doi.org/" "" canonical-doi)))
-        title)
-    ;; Retrieve CrossRef data for the DOI
-    (with-current-buffer (url-retrieve-synchronously api-url)
-      (goto-char (point-min))
-      ;; Search for the beginning of the JSON response (after the HTTP headers)
-      (if (re-search-forward "\n\n" nil t)
-          (let* ((json-response (json-read))
-                 (message-status (alist-get 'status json-response)))
-	    (setq message json-response)
-            (if (equal message-status "ok")
-                ;; Extract the title from the JSON data
-                (setq title (alist-get 'title (alist-get 'message json-response))))
-            ;; Handle if title is missing
-            (if (null title)
-                (error "No title found in CrossRef data"))))
-      ;; Clean up the buffer
-      (kill-buffer (current-buffer)))
-    ;; Return the title
-    (if title
-        (mapconcat 'identity title " ")
-      (error "Failed to retrieve title"))))
+Falls back to prompting the user if something goes wrong, showing HTTP response or error info."
+  (let* ((doi (replace-regexp-in-string "https://doi.org/" "" canonical-doi))
+         (api-url (format "https://api.crossref.org/works/%s" doi))
+         (buffer-name "*CrossRef DOI Response*")
+         title)
+    (condition-case err
+        (with-current-buffer (url-retrieve-synchronously api-url t t)
+          (rename-buffer buffer-name t)
+          (goto-char (point-min))
+          (if (not (re-search-forward "\n\n" nil t))
+              (error "Failed to find JSON response start"))
+          (let ((json-raw (buffer-substring-no-properties (point) (point-max))))
+            (condition-case json-err
+                (let* ((json-object (with-temp-buffer
+                                      (insert json-raw)
+                                      (goto-char (point-min))
+                                      (json-read)))
+                       (message (alist-get 'message json-object))
+                       (status (alist-get 'status json-object)))
+                  (unless (equal status "ok")
+                    (error "Unexpected response status: %s" status))
+                  (setq title (alist-get 'title message))
+                  (unless title
+                    (error "No title field found in CrossRef data"))
+                  (kill-buffer buffer-name)
+                  (mapconcat #'identity title " "))
+              (error
+               ;; JSON parse failed – now inspect the content and react accordingly
+               (let ((msg (if (< (length json-raw) 40)
+                              (format "Failed to parse JSON from: \"%s\"" json-raw)
+                            (progn
+                              (let ((debug-buffer (generate-new-buffer "*CrossRef Raw Response*")))
+                                (with-current-buffer debug-buffer
+                                  (insert json-raw))
+                                (format "Failed to parse JSON. See buffer: %s" (buffer-name debug-buffer)))))))
+                 (read-string (format "%s. Please enter title manually: " msg)))))))
+      (error
+       (let ((fallback (read-string
+                        (format "Error: %s. Could not retrieve title. Please enter manually: "
+                                (error-message-string err)))))
+         (message "See buffer %s for raw response or error details." buffer-name)
+         fallback)))))
 
 (defun shizcow/doi-url-to-doi (input)
   "Convert DOI URL INPUT of the form 'https://doi.org/...' to a DOI.
@@ -2150,6 +2182,9 @@ Each result is an alist containing 'title', 'authors', and 'doi'."
 	selected-option
       (shizcow/canonicalize-doi (cdr (assoc 'doi selected-paper))))))
 #+end_src
+
+#+RESULTS:
+: shizcow/prompt-url-from-crossref-search
 
 And here's a roam specific utility:
 #+begin_src elisp
@@ -3325,7 +3360,7 @@ This version defines additional template classes and embeds the note type in the
 
 (defun shizcow/org-roam-capture-finished (&rest _)
   "Run after `org-roam-capture-` completes."
-  (when shizcow/transient/defer-slug-scavenging
+  (when (and (boundp 'shizcow/transient/defer-slug-scavenging) shizcow/transient/defer-slug-scavenging)
     (shizcow/roam-scavenge-slug-and-rename shizcow/transient/defer-slug-scavenging))
   (setq shizcow/transient/defer-slug-scavenging nil))
 
