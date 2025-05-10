@@ -273,7 +273,7 @@ To run these models, I'm using llama.cpp. The below elisp is a lightly over-engi
   	"rm -rf llama.cpp && "
         "git clone https://github.com/ggerganov/llama.cpp.git --depth=1 && "
         "cd llama.cpp && "
-        "cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="(shell-quote-argument llama-install-dir)" && "
+        "cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="(shell-quote-argument shizcow/llama-install-dir)" && "
         "cmake --build build --config Release -j $(nproc) && "
   	"cmake --install build && "
   	"cd "(shell-quote-argument shizcow/llama-install-dir)" &&"
