@@ -276,8 +276,12 @@ To run these models, I'm using llama.cpp. The below elisp is a lightly over-engi
         "cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="(shell-quote-argument shizcow/llama-install-dir)" && "
         "cmake --build build --config Release -j $(nproc) && "
   	"cmake --install build && "
-  	"cd "(shell-quote-argument shizcow/llama-install-dir)" &&"
-  	"rm -rf " (shell-quote-argument shizcow/llama-install-dir)
+	"echo 'Build and install finished. Cleaning up directories' && "
+  	"echo cd "(shell-quote-argument shizcow/llama-install-dir)" && "
+  	"cd "(shell-quote-argument shizcow/llama-install-dir)" && "
+  	"echo rm -rf " (shell-quote-argument shizcow/llama-temp-dir) " && "
+  	"rm -rf " (shell-quote-argument shizcow/llama-temp-dir) " && "
+	"echo 'LLAMA install finished'"
   	)
        t)
       (with-current-buffer "*compilation*"
