@@ -23,8 +23,8 @@ To start a *new* Emacs instance with this config loaded, simply open this file a
   (let* ((private (make-symbol "private"))
 	 (old-buffer (current-buffer))
 	 (tmp-directory-name (make-temp-file "emacs-config-" t))
-	 (tmp-file-name-org (concat (file-name-as-directory tmp-directory-name) "conf.org"))
-	 (tmp-file-name-el (concat (file-name-as-directory tmp-directory-name) "conf.el")))
+	 (tmp-file-name-org (expand-file-name "conf.org" tmp-directory-name))
+	 (tmp-file-name-el (expand-file-name "conf.el" tmp-directory-name)))
     (with-demoted-errors ""
       (progn
 	(put private 'no-need-to-delete nil)
@@ -44,7 +44,7 @@ To load this configuration into the current Emacs instance, either click [[elisp
 #+begin_src emacs-lisp :tangle no :results silent
   (let* ((old-buffer (current-buffer))
 	 (tmp-directory-name (make-temp-file "emacs-config-" t))
-	 (tmp-file-name-org (concat (file-name-as-directory tmp-directory-name) "conf.org")))
+	 (tmp-file-name-org (expand-file-name "conf.org" tmp-directory-name)))
     (unwind-protect
 	(progn
 	  (with-temp-file tmp-file-name-org
@@ -61,8 +61,8 @@ To write this config to =.emacs.d= and evaluate, either click [[elisp:(org-sbe "
 #+name: install-cfg
 #+begin_src emacs-lisp :tangle no :results silent :noweb yes
   <<write-init-el>>
-  (write-file (concat user-emacs-directory "conf.org"))
-  (org-babel-load-file (concat user-emacs-directory "conf.org"))
+  (write-file (expand-file-name "conf.org" user-emacs-directory))
+  (org-babel-load-file (expand-file-name "conf.org" user-emacs-directory))
   (message "Done writing config and installing/configuring packages")
 #+end_src
 ** Nuke existing config and re-install
@@ -75,7 +75,7 @@ To perform this action, click [[elisp:(org-sbe "nuke-and-pave")][this link]] or 
 #+name: nuke-and-pave
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (let* ((dotemacs-backup-dir (make-temp-file "dotemacs-backup-" t)))
-  (copy-directory user-emacs-directory (concat dotemacs-backup-dir ".emacs.d"))
+  (copy-directory user-emacs-directory (expand-file-name ".emacs.d" dotemacs-backup-dir))
   (if (file-exists-p user-emacs-directory)
       (delete-directory user-emacs-directory t))
   (make-directory user-emacs-directory)
@@ -157,7 +157,7 @@ For some high-level hacking, I utilize the following to provide automatic input 
 Emacs requires an ~init.el~ file to get anything done. Luckily for the literacy of this configuration, only a single line is required:
 #+name: init-el-file
 #+begin_src emacs-lisp :tangle no :eval never
-(org-babel-load-file (concat (file-name-as-directory user-emacs-directory) "conf.org"))
+(org-babel-load-file (expand-file-name "conf.org" user-emacs-directory))
 #+end_src
 
 The above is in a separate file, while all other elisp snippets in this document are self contained and executed as-such.
@@ -167,7 +167,7 @@ Too lazy to copy over this file yourself? Click [[elisp:(org-sbe "write-init-el"
 #+begin_src emacs-lisp :tangle no :noweb yes :results silent
 (defmacro requote (form) (format "%S" form))
 (if (not (file-exists-p user-emacs-directory)) (make-directory user-emacs-directory))
-(write-region (requote <<init-el-file>>) nil (concat (file-name-as-directory user-emacs-directory) "init.el"))
+(write-region (requote <<init-el-file>>) nil (expand-file-name "init.el" user-emacs-directory))
 #+end_src
 
 ** Custom File
@@ -203,10 +203,10 @@ The rest of the bootstrapping is done as so:
     (url-insert-file-contents "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el")
     (eval-buffer)
     (quelpa-self-upgrade)))
-(let ((path (concat (file-name-as-directory (concat user-emacs-directory "quelpa")) "melpa")))
+(let ((path (expand-file-name "melpa" (expand-file-name "quelpa" user-emacs-directory))))
   (if (not (file-exists-p path))
       (make-directory path))
-  (let ((path (concat (file-name-as-directory path) "recipes")))
+  (let ((path (expand-file-name "recipes" path)))
     (if (not (file-exists-p path))
 	(make-directory path))))
 (setq use-package-always-ensure t) ; docs say this is deprecated but things break when it's not included
@@ -923,7 +923,7 @@ The structure of the library directory is as follows:
 #+begin_src emacs-lisp :results silent :tangle no
 (setq master-library-dir (file-truename "~/smbshare/PhD-library"))
 (unless (file-directory-p master-library-dir) (make-directory master-library-dir))
-(setq master-library-bibtex (concat (file-name-as-directory master-library-dir) "blessed.bib"))
+(setq master-library-bibtex (expand-file-name "blessed.bib" master-library-dir))
 (unless (file-exists-p master-library-bibtex) (write-region "" nil master-library-bibtex))
 #+end_src
 
@@ -2756,13 +2756,13 @@ This is the scheme I've written to store files locally.
 *** The Method
 Papers (or in general, an external-referenced resources) and metadata are stored in the vault, aka =org-roam-directory/vault=.
 #+begin_src elisp :results silent
-(setq shizcow/roamdb-vault (concat (file-name-as-directory org-roam-directory) "vault"))
+(setq shizcow/roamdb-vault (expand-file "vault" org-roam-directory))
 (when (not (file-directory-p shizcow/roamdb-vault)) (make-directory shizcow/roamdb-vault))
 #+end_src
 
 Every resource is assigned its own "transient identifier" file within the =vault/ident= directory. This is a file containing Elisp-readable information about the resource. More info on transient identifier files is in the below section.
 #+begin_src elisp :results silent
-(setq shizcow/roamdb-vault-ident (concat (file-name-as-directory shizcow/roamdb-vault) "ident"))
+(setq shizcow/roamdb-vault-ident (expand-file-name "ident" shizcow/roamdb-vault))
 (when (not (file-directory-p shizcow/roamdb-vault-ident)) (make-directory shizcow/roamdb-vault-ident))
 #+end_src
 
@@ -2770,13 +2770,13 @@ External, publicly available resources are not (permanently) kept on disk. They 
 
 Internal, privately available resources are kept within the =vault/readonly_local= directory, referenced to by a transient identifier. This type of resource is intended to never change (unless the transient identifier is manually updated).
 #+begin_src elisp :results silent
-(setq shizcow/roamdb-vault-local (concat (file-name-as-directory shizcow/roamdb-vault) "local"))
+(setq shizcow/roamdb-vault-local (expand-file-name "local" shizcow/roamdb-vault))
 (when (not (file-directory-p shizcow/roamdb-vault-local)) (make-directory shizcow/roamdb-vault-local))
 #+end_src
 
 When a resource is requested, it is either downloaded (external) or symlinked (internal) to the =vault/transient= directory. Any org links should point to the transient identifier, which will automatically set up the download/link step, update metadata, and forward the user to the newly downloaded resource.
 #+begin_src elisp :results silent
-(setq shizcow/roamdb-vault-transient (concat (file-name-as-directory shizcow/roamdb-vault) "transient"))
+(setq shizcow/roamdb-vault-transient (expand-file-name "transient" shizcow/roamdb-vault))
 (when (not (file-directory-p shizcow/roamdb-vault-transient)) (make-directory shizcow/roamdb-vault-transient))
 #+end_src
 
@@ -2911,7 +2911,7 @@ And the below function relates *local* resources to their backing resource file 
 (defun shizcow/tid-to-local-location (tid)
   (when (not (string-equal (cdr (assoc 'backing tid)) "local"))
     (user-error "Called shizcow/tid-to-local-location on a non-local transient resource!"))
-  (concat (file-name-as-directory shizcow/roamdb-vault-local) (cdr (assoc 'location tid))))
+  (expand-file-name (cdr (assoc 'location tid)) shizcow/roamdb-vault-local))
 #+end_src
 
 **** Online Example
